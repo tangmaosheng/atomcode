@@ -3,7 +3,7 @@
 $config['log'] = 0;
 $config['time_zone'] = 'PRC'; # like Etc/GMT-8 see http://cn2.php.net/manual/en/res/timezones.others.html
 
-$config['disguise'] = true; #URL 伪装
+$config['disguise'] = false; #URL 伪装
 $config['default_document'] = 'index'; #默认文档
 $config['query_start'] = '?';
 $config['query_delimeter'] = '&';

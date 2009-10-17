@@ -94,10 +94,201 @@ class Compile
 	 */
 	private function Refresh()
 	{
-		file_put_contents($this->CacheFile,file_get_contents($this->SourceFile));
-		file_put_contents($this->DataFile,'<' . "?php\n?" . '>');
-		file_put_contents($this->TimeFile,time());
-		echo 'compiling...';
+		header('Content-Type:text/plain;charset=' . $this->config['CHARSET']);
+		$this->GetTags();
+		print_r($this->Tags);
+		//file_put_contents($this->CacheFile,file_get_contents($this->SourceFile));
+		//file_put_contents($this->DataFile,'<' . "?php\n?" . '>');
+		//file_put_contents($this->TimeFile,time());
+		//echo 'compiling...';
+	}
+	
+	/**
+	 * 取得每个可用的Tag
+	 * 规则:
+	 * 标签内引号中只有引号及 "\" 本身需要转义
+	 * 外部则需要将 { [ 转义
+	 * 
+	 * @return unknown_type
+	 */
+	private function GetTags()
+	{
+		$Tags = array();
+		$Tag = array();
+		$TagString = ''; #标签内容
+		$TagReady = ''; #标签起始开始
+		$StartPos = -1; #标签开始位置
+		
+		$NowPos = 0; #当前程序运行位置
+		
+		$NowLine = 1;
+		$NowOffset = 0;
+		
+		$InQuote = false; #在引号内
+		$TagStart = false;#标签正常开始
+		$Slashing = false;#正在转义
+		
+		$QuoteChar = ''; #引号符号
+		
+		$fp	= fopen($this->SourceFile,'r');
+		
+		while(false !== ($char = fgetc($fp)))
+		{
+			if ($char == "\n")
+			{
+				$NowLine ++;
+				$NowOffset =0;
+			}
+			else
+			{
+				$NowOffset ++;
+			}
+			
+			if ($Slashing)
+			{
+				if ($TagStart)
+				{
+					if ($char != '"' && $char != "'" && $char != "\\")
+					{
+						$TagString .= '\\';
+					}
+					
+					$TagString .= $char;
+				}
+				else
+				{
+					//Pass.in html
+				}
+				$Slashing = false;
+			}
+			else #not slashing
+			{
+				if ($InQuote)
+				{
+					if ($char == '"' || $char == "'") #special chars
+					{
+						$TagString .= $char;
+						if ($QuoteChar == $char)
+						{
+							$InQuote = false;
+						}
+					}
+					elseif ($char == '\\')
+					{
+						$Slashing = true;
+					}
+					else
+					{
+						$TagString .= $char;
+					} #end special chars
+				}
+				else #not in quote
+				{
+					if ($char == '\\') #special chars
+					{
+						if ($TagStart)
+						{
+							#error!!!!!!!!!!
+							die('line:' . $NowLine . '<br>char:' . $NowOffset);
+						}
+						else
+						{
+							$Slashing = true;
+						}
+					}
+					elseif($char == '"' || $char == "'")
+					{
+						if ($TagStart)
+						{
+							$InQuote = true;
+							$TagString .= $char;
+							$QuoteChar = $char;
+						}
+						else
+						{
+							#ignore it.
+						}
+					}
+					elseif ($char == '[' || $char == '{')
+					{
+						if ($TagStart)
+						{
+							#error!!!!!!!!!!
+							die('line:' . $NowLine . '<br>char:' . $NowOffset);
+						}
+						$TagReady = $char;
+						$StartPos = $NowPos;
+						$TagStart = false;
+						$TagString = '';
+					}
+					elseif ($char == '@' || $char == '$' || $char == '?')
+					{
+						if ($TagReady == '[' && ($char == '$' || $char == '@') && $StartPos == $NowPos - 1)
+						{
+							$TagStart = true;
+							$TagReady .= $char;
+						}
+						elseif ($TagReady == '{' && $char == '?' && $StartPos == $NowPos - 1)
+						{
+							$TagStart = true;
+							$TagReady .= $char;
+						}
+						else
+						{
+							if ($TagStart)
+							{
+								#error!!!!!!!!!!
+								die('line:' . $NowLine . '<br>char:' . $NowOffset);
+							}
+							else
+							{
+								$TagReady = '';
+								//normal chars,no need to 
+							}
+						}
+					}
+					elseif($char == ']' || $char == '}')
+					{
+						if ($TagStart)
+						{
+							if (($TagReady{0} == '{' && $char == '}') || ($TagReady{0} == '[' && $char == ']'))
+							{
+								$Tag['Start']	= $StartPos;
+								$Tag['End']		= $NowPos;
+								$Tag['NameSpace'] = $TagReady;
+								$Tag['Body']	= $TagString;
+								$Tag['Index']	= count($Tags);
+								
+								$Tags[] = $Tag;
+								
+								$TagReady = '';
+								$TagString = '';
+								$TagStart = false;
+								$TagReady = '';
+							}
+							else
+							{
+								#error!!!!!!!!!!
+								die('line:' . $NowLine . '<br>char:' . $NowOffset);
+							}
+						}
+					}
+					else
+					{
+						if ($TagStart)
+						{
+							$TagString .= $char;
+						}
+					}
+				} #end in quote
+			} #end slashing
+			
+			$NowPos ++;
+		}
+		
+		fclose($fp);
+		
+		$this->Tags = $Tags;
 	}
 	
 	/**
@@ -116,6 +307,7 @@ class Compile
 		if (!file_exists($this->SourceFile) || !is_file($this->SourceFile))
 		{
 			$this->NoFile();
+			return false;
 		}
 		
 		if (!file_exists($this->CacheFile) || !file_exists($this->DataFile) || !file_exists($this->TimeFile))
@@ -169,8 +361,8 @@ class Compile
 			$this->Refresh();
 		}
 		
-		include $this->DataFile;
-		include $this->CacheFile;
+		//include $this->DataFile;
+		//include $this->CacheFile;
 	}
 }
 
