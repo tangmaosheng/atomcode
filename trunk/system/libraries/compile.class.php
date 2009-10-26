@@ -102,7 +102,6 @@ class Compile
 	 */
 	private function Refresh()
 	{
-		header('Content-Type:text/html;charset=' . $this->config['CHARSET']);
 		$this->GetTags();
 		$this->ParseTags();
 		$this->RefreshTplCache();
@@ -551,21 +550,20 @@ class Compile
 		{
 			if ($this->config['gzip'])
 			{
-				ob_start('ob_gzhandler');
+				@ob_start('ob_gzhandler');
 			}
 			else
 			{
-				ob_start();
+				@ob_start();
 			}
 		}
 		
 		include $this->DataFile;
 		include $this->CacheFile;
-		
 		if (!$this->IsIncluded && !$this->IsUserControl)
 		{
 			$content = ob_get_contents();
-			ob_end_flush();
+			ob_end_clean();
 		}
 		
 		return $content;

@@ -613,9 +613,9 @@ class Session extends ac_base
 		Session::setCookieDomain($var->config['COOKIE']['DOMAIN']);
 		//设置当前项目运行脚本作为Session本地名
 		Session::localName(APP_NAME);
-		Session::name($var->config['SESSION_NAME']);
-		Session::path($var->config['SESSION_PATH']);
-		Session::setCallback($var->config['SESSION_CALLBACK']);
+		Session::name($var->config['SESSION']['NAME']);
+		Session::path($var->config['SESSION']['PATH']);
+		Session::setCallback($var->config['SESSION']['CALLBACK']);
 	}
 
 	/**

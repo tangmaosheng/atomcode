@@ -61,9 +61,8 @@ class Application
 		{
 			stop('No view is set.');
 		}
-		
+		header('Content-Type:text/html;charset=' . $this->config['CHARSET']);
 		$Engine = load_class('compile');
-		//print_r($Engine->ParseParam('name="efas" . it($name) , id=3',5));
 		$Engine->Show($this->view_file);
 	}
 	

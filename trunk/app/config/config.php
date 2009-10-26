@@ -17,7 +17,7 @@ $config['CHARSET'] = 'utf-8';
 $config['MODEL_CLASS_PREFIX'] = ''; #模型前缀
 $config['MODEL_CLASS_SUFFIX'] = 'Model'; #模型后缀 组成以下样子: UserModel
 
-$config['gzip'] = true;
+$config['gzip'] = false;
 
 #数据库部分
 $config['DATA_RESULT_TYPE'] = 0; // 默认数据返回格式 1 对象 0 数组
