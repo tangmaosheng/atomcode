@@ -47,6 +47,17 @@ class Uri
 	
 	private function _parse_url($uri)
 	{
+		if(!$this->config['disguise'])
+		{
+			foreach($_GET as $k => $v)
+			{
+				$this->uri['get'][$k] = xaddslashes($v);
+			}
+			
+			$this->uri['view'] = $this->uri['get'][$this->config['get']['view']];
+			return;
+		}
+		
 		$uri = trim($uri,'/');
 		
 		$segment = explode(

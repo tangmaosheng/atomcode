@@ -8,8 +8,8 @@ class user extends container {
 	
 	function NewsList($param)
 	{
-		$param['name'] = 'NewsList';
-		return $param;
+		
+		return array(array('id'=>4,'name'=>'eachcan','year'=>'2009'),array('id'=>5,'name'=>'asdfsdfsd','year'=>'2009'));
 	}
 }
 

@@ -27,7 +27,7 @@ if(version_compare(PHP_VERSION,'5.0.0','<') )
 #常量定义
 $CorePath = __FILE__;
 define('SYS_PATH', str_replace('\\','/',substr($CorePath,0,-14) ) );
-define('BASE_PATH', str_replace('\\','/',dirname(SELF) ) );
+define('BASE_PATH', str_replace('\\','/',dirname(SCRIPTFILE) ) );
 define('APP_PATH', BASE_PATH . '/' . APP);
 
 require 'common.php';
@@ -59,7 +59,6 @@ load_class('Cookie',0);
 foreach ($_COOKIE as $k => $v)
 {
 	$var->cookie[$k] = Cookie::get($v);
-	//$var->cookie[$k] = $v;
 }
 
 load_class('Session',0);

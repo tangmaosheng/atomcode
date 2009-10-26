@@ -117,6 +117,12 @@ function &load_class($class, $instantiate = TRUE,$path = 'libraries')
 function &load_container($container, $instantiate = TRUE)
 {
 	static $objects = array();
+
+	// Does the class exist?  If so, we're done...
+	if (isset($objects[$container]))
+	{
+		return $objects[$container];
+	}
 	
 	$real_container = end(explode('/',$container));
 	
@@ -160,6 +166,12 @@ function &load_model($model, $instantiate = TRUE)
 {
 	global $var;
 	static $objects = array();
+
+	// Does the class exist?  If so, we're done...
+	if (isset($objects[$model]))
+	{
+		return $objects[$model];
+	}
 	
 	$model = $var->config['MODEL_CLASS_PREFIX'] . $model . $var->config['MODEL_CLASS_SUFFIX'];
 	
@@ -190,6 +202,37 @@ function &load_model($model, $instantiate = TRUE)
 function &M($model)
 {
 	return load_model($model);
+}
+
+/**
+ * Loads model from user's application folder
+ * 
+ * @param $model
+ * @param $instantiate 初始化
+ * @return unknown_type
+ */
+function load_helper($helper)
+{
+	global $var;
+	static $objects = array();
+
+	// Does the class exist?  If so, we're done...
+	if (isset($objects[$helper]))
+	{
+		return true;
+	}
+	
+	if (file_exists(APP_PATH.'/helpers/' . $helper . '.php'))
+	{
+		require(APP_PATH.'/helpers/' . $helper . '.php');
+		return $objects[$helper]=true;
+	}
+	elseif (file_exists(SYS_PATH.'/helpers/' . $helper . '.php'))
+	{
+		require(SYS_PATH.'/helpers/' . $helper . '.php');
+		return $objects[$helper]=true;
+	}
+	return $objects[$helper]=false;
 }
 
 /**
@@ -584,6 +627,97 @@ function stop($message = '')
 	exit($message);
 }
 
+/**
+ * 判断是否是POST
+ * @return unknown_type
+ */
+function is_post()
+{
+	return strtolower($_SERVER['REQUEST_METHOD']) == 'post';
+}
+/**
+ * 是否是Ajax提交
+ * @return unknown_type
+ */
+function isAjax() 
+{
+	if(isset($_SERVER['HTTP_X_REQUESTED_WITH'])) 
+	{
+		if(strtolower($_SERVER['HTTP_X_REQUESTED_WITH'])=='xmlhttprequest')
+			return true;
+			
+	}
+	
+	if(!empty($_POST[$var->config['VAR_AJAX_SUBMIT']]) || !empty($_GET[$var->config['VAR_AJAX_SUBMIT']]))
+	{
+		// 判断Ajax方式提交
+		return true;
+	}
+	
+	return false;
+}
+
+function load_data($base,$nextUrl,$fn)
+{
+	$path = APP_PATH . '/cache/' . $base . '/' . str_replace('.','/',$nextUrl) . '/' . $fn;
+	if (!file_exists($path))return false;
+	return file_get_contents($path);
+}
+
+function save_data($base, $nextUrl, $fn, $content)
+{
+	$path = APP_PATH . '/cache/' . $base . '/' . str_replace('.','/',$nextUrl);
+	mk_dir($path);
+	
+	$path .= '/' . $fn;
+	return file_put_contents($path,$content);
+}
+
+function clean_svn($path1)
+{
+	global $count;
+	if ($count > 200)die('paused');
+	$p = opendir($path1);
+	while($f = readdir($p))
+	{
+		if ($f == '.' || $f == '..')continue;
+	echo 'checking ' . $path1 . '/' . $f . '...<br>';
+		
+		if($f == '.svn')
+		{
+			del_dir($path1 . '/' . $f);
+		}elseif (is_dir($path1 . '/' . $f))
+		{
+			clean_svn($path1 . '/' . $f);
+		}
+	}
+}
+
+function del_dir($path)
+{
+	global $count;
+	$count ++;
+	if ($count > 200)die('paused');
+	echo 'start delete ' . $path . '...<br>';
+	$p = opendir($path);
+	while($f = readdir($p))
+	{
+		if ($f == '.' || $f == '..')continue;
+		$count ++;
+		
+		if (is_dir($path . '/' . $f))
+		{
+			del_dir($path . '/' . $f);
+		}
+		else
+		{
+			unlink($path . '/' . $f);
+			echo '<font color="red">deleting ' . $path . '/' . $f . '</font>...ok<br>';
+		}
+	}
+	rmdir($path);
+	echo '<font color="red">delete ' . $path . '</font>...ok!<br>';
+}
 
 
 

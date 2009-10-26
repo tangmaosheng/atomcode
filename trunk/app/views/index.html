@@ -5,10 +5,23 @@
 <title>试验很成功</title>
 </head>
 
-<body>[$config.log]
-<br />{?user.newslist category="0" }<br />
+<body>
+<table width="100%" border="0" cellspacing="0" cellpadding="0">
+  <tr>
+    <td>id</td>
+    <td>name</td>
+    <td>year</td>
+  </tr>
+  [@md5('admin')]
+  {?user.newslist}
+  <tr>
+    <td>[$id]</td>
+    <td>[$name]</td>
+    <td>[$year]</td>
+  </tr>
+  {?end}
+</table>
+{?usercontrol.tem.haha param="八辈子血霉"}
 <br />
-{?end}<br />
-{?usercontrol.login "\""/}
 </body>
 </html>

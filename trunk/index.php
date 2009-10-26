@@ -1,7 +1,11 @@
 <?php
-define('SELF',__FILE__);
+define('SCRIPTFILE',__FILE__);
 define('APP','app');
 require "system/core/core.php";
+
+$path = dirname(SCRIPTFILE);
+
+$count = 0;
 
 $app = new Application();
 $app->Cache = false;

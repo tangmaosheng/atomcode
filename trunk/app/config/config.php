@@ -5,12 +5,19 @@ $config['time_zone'] = 'PRC'; # like Etc/GMT-8 see http://cn2.php.net/manual/en/
 
 $config['disguise'] = false; #URL 伪装
 $config['default_document'] = 'index'; #默认文档
+#=================|以下仅URL伪装开启时有效|=====================#
 $config['query_start'] = '?';
 $config['query_delimeter'] = '&';
+#==================|End|=====================================#
+#=================|以下仅URL伪装关闭时有效|=====================#
+$config['get']['view'] = 'v';
+#==================|End|=====================================#
 $config['CHARSET'] = 'utf-8';
 
 $config['MODEL_CLASS_PREFIX'] = ''; #模型前缀
 $config['MODEL_CLASS_SUFFIX'] = 'Model'; #模型后缀 组成以下样子: UserModel
+
+$config['gzip'] = true;
 
 #数据库部分
 $config['DATA_RESULT_TYPE'] = 0; // 默认数据返回格式 1 对象 0 数组

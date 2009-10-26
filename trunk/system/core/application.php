@@ -63,6 +63,7 @@ class Application
 		}
 		
 		$Engine = load_class('compile');
+		//print_r($Engine->ParseParam('name="efas" . it($name) , id=3',5));
 		$Engine->Show($this->view_file);
 	}
 	
