@@ -4,8 +4,8 @@
  * 
  * A open source application,welcome to join us to develop it.
  *
- * @copyright (c)  2009 http://www.atomcode.cn
- * @link http://www.atomcode.cn
+ * @copyright (c)  2009 http://www.cncms.com.cn
+ * @link http://www.cncms.com.cn
  * @author Eachcan <eachcan@gmail.com>
  * @license http://www.apache.org/licenses/LICENSE-2.0
  * @version 1.0 2009-10-6
@@ -613,9 +613,9 @@ class Session extends ac_base
 		Session::setCookieDomain($var->config['COOKIE']['DOMAIN']);
 		//设置当前项目运行脚本作为Session本地名
 		Session::localName(APP_NAME);
-		Session::name($var->config['SESSION']['NAME']);
-		Session::path($var->config['SESSION']['PATH']);
-		Session::setCallback($var->config['SESSION']['CALLBACK']);
+		Session::name($var->config['SESSION_NAME']);
+		Session::path($var->config['SESSION_PATH']);
+		Session::setCallback($var->config['SESSION_CALLBACK']);
 	}
 
 	/**

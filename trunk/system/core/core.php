@@ -5,8 +5,8 @@
  * A open source application,welcome to join us to develop it.
  * New theory to develop PHP project.
  *
- * @copyright (c)  2009 http://www.atomcode.cn
- * @link http://www.atomcode.cn
+ * @copyright (c)  2009 http://www.cncms.com.cn
+ * @link http://www.cncms.com.cn
  * @author Eachcan <eachcan@gmail.com>
  *
  * @license http://www.apache.org/licenses/LICENSE-2.0
@@ -29,7 +29,6 @@ $CorePath = __FILE__;
 define('SYS_PATH', str_replace('\\','/',substr($CorePath,0,-14) ) );
 define('BASE_PATH', str_replace('\\','/',dirname(SCRIPTFILE) ) );
 define('APP_PATH', BASE_PATH . '/' . APP);
-define('APP_NAME','app');
 
 require 'common.php';
 require 'ac_base.class.php';
@@ -54,10 +53,6 @@ if ($var->method == 'post')
 		$var->post[$k] = xaddslashes($v);
 		$var->input[$k] = $var->post[$k];
 	}
-}
-else
-{
-	$var->post = false;
 }
 
 load_class('Cookie',0);

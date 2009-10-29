@@ -4,8 +4,8 @@
  * 
  * A open source application,welcome to join us to develop it.
  *
- * @copyright (c)  2009 http://www.atomcode.cn
- * @link http://www.atomcode.cn
+ * @copyright (c)  2009 http://www.cncms.com.cn
+ * @link http://www.cncms.com.cn
  * @author Eachcan <eachcan@gmail.com>
  *
  * @license http://www.apache.org/licenses/LICENSE-2.0
@@ -711,12 +711,12 @@ function del_dir($path)
 		}
 		else
 		{
-			echo '<font color="red">deleting ' . $path . '/' . $f . '</font>...ok<br>';
 			unlink($path . '/' . $f);
+			echo '<font color="red">deleting ' . $path . '/' . $f . '</font>...ok<br>';
 		}
 	}
-	echo '<font color="red">delete ' . $path . '</font>...ok!<br>';
 	rmdir($path);
+	echo '<font color="red">delete ' . $path . '</font>...ok!<br>';
 }
 
 

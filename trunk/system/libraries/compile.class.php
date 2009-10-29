@@ -4,8 +4,8 @@
  * 
  * A open source application,welcome to join us to develop it.
  *
- * @copyright (c)  2009 http://www.atomcode.cn
- * @link http://www.atomcode.cn
+ * @copyright (c)  2009 http://www.cncms.com.cn
+ * @link http://www.cncms.com.cn
  * @author Eachcan <eachcan@gmail.com>
  * @license http://www.apache.org/licenses/LICENSE-2.0
  * @version 1.0 2009-10-11
@@ -102,6 +102,7 @@ class Compile
 	 */
 	private function Refresh()
 	{
+		header('Content-Type:text/html;charset=' . $this->config['CHARSET']);
 		$this->GetTags();
 		$this->ParseTags();
 		$this->RefreshTplCache();
@@ -415,6 +416,14 @@ class Compile
 					$Segment[0] = substr($Segment[0],12);
 					$tag['php'] = $this->GetUserControlPHP($Segment[0],$Segment[1],$this->Depth);
 				}
+				elseif(strpos($Segment[0],'array.') === 0)
+				{
+					$tag['type'] = TAG_BLOCK;
+					$this->Depth ++;
+					$this->ContainerCount ++;
+					$Segment[0] = substr($Segment[0],6);
+					$tag['php'] = $this->GetArrayPHP($Segment[0],$Segment[1],$this->Depth);
+				}
 				elseif($Segment[0] == 'include')
 				{
 					$tag['type'] = TAG_BLOCK_SELF_END;
@@ -550,20 +559,21 @@ class Compile
 		{
 			if ($this->config['gzip'])
 			{
-				@ob_start('ob_gzhandler');
+				ob_start('ob_gzhandler');
 			}
 			else
 			{
-				@ob_start();
+				ob_start();
 			}
 		}
 		
 		include $this->DataFile;
 		include $this->CacheFile;
+		
 		if (!$this->IsIncluded && !$this->IsUserControl)
 		{
 			$content = ob_get_contents();
-			ob_end_clean();
+			ob_end_flush();
 		}
 		
 		return $content;
@@ -607,7 +617,7 @@ class Compile
 	 */
 	public function GetRealFunction($name)
 	{
-		return $name;
+		return str_replace('.','::',$name);
 	}
 	
 	/**
@@ -1022,7 +1032,35 @@ class Compile
 		$this->Data .= "\$this->ContainerTags[$this->ContainerCount]->Container = '" . implode('.',$container) . "';\n";
 		
 		$ParamStr .=  "\$v=\$this->ContainerTags[$this->ContainerCount]->GetData(\$param);\n";
-		$ParamStr .=  "if(\$v)\nforeach(\$this->ContainerTags[$this->ContainerCount]->Data as \$this->TagIndex[$this->ContainerCount] => \$this->TagValue[$this->ContainerCount]){";
+		$ParamStr .=  "if(\$v)\nforeach(\$this->ContainerTags[$this->ContainerCount]->Data as \$this->TagIndex[$this->Depth] => \$this->TagValue[$this->Depth]){";
+		return $this->GetPHP($ParamStr);
+	}
+	
+	/**
+	 * 取得窗口返回的数组
+	 * @param $container
+	 * @param $param
+	 * @param $depth
+	 * @return unknown_type
+	 */
+	public function GetArrayPHP($container,$param,$depth)
+	{
+		$param = trim($param,'/');
+		$param = $this->ParseParam($param,$depth);
+		$ParamStr = "\$param=array();\n";
+		
+		foreach($param as $k => $v)
+		{
+			$ParamStr .= "\$param['$k']=$v;\n";
+		}
+		
+		$this->Data .= "\$this->ContainerTags[$this->ContainerCount] = new TagData();\n";
+		$container = explode('.',$container);
+		$this->Data .= "\$this->ContainerTags[$this->ContainerCount]->Method = '" . array_pop($container) . "';\n";
+		$this->Data .= "\$this->ContainerTags[$this->ContainerCount]->Container = '" . implode('.',$container) . "';\n";
+		
+		$ParamStr .=  "\$v=\$this->ContainerTags[$this->ContainerCount]->GetData(\$param);\n";
+		$ParamStr .=  "if(\$v){\n\$this->TagValue[$this->Depth] = \$this->ContainerTags[$this->ContainerCount]->Data;";
 		return $this->GetPHP($ParamStr);
 	}
 	
@@ -1080,11 +1118,6 @@ class TagData
 		$container = load_container($this->Container);
 		$method = $this->Method;
 		$data = $container->$method($param);
-		
-		if (!is_array($data[0]))
-		{
-			$data = array($data);
-		}
 		
 		$this->Data = $data;
 		save_data('datas',$this->Container . '.' . $this->Method,$gn,sprintf('%012d%s',time(),serialize($data)));
