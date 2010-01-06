@@ -118,6 +118,7 @@ class AC_Exception
 		{
 			ob_end_flush();	
 		}
+		echo $message;exit;
 		ob_start();
 		include(APPPATH.'errors/'.$template.EXT);
 		$buffer = ob_get_contents();
@@ -155,6 +156,7 @@ class AC_Exception
 			ob_end_flush();	
 		}
 		
+		echo $message;exit;
 		ob_start();
 		include(APP_PATH.'/errors/error_php.php');
 		$buffer = ob_get_contents();

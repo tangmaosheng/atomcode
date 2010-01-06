@@ -14,31 +14,46 @@
 
 class Application
 {
-	var $cache = false;
-	var $view_file = '';
-	var $_cfg_view = '';
-	var $default_view = 'index';
-	var $ext = '.html';
+	private $defaultController = 'welcome';
+	private $defaultMethod = 'index';
+	private $subDir = '';
 	
-	public function __construct()
-	{
-		global $URI,$var;
-		$this->view_file = $URI->get_view();
-		$this->cfg_view = $var->config['default_document'];
-		$this->ext = $var->config['view_ext'] ? $var->config['view_ext'] : '.html';
-	}
+	public $controller = '';
+	public $method = '';
 	
 	/**
 	 * 设置默认页面
 	 * @param $index
 	 * @return unknown_type
 	 */
-	public function set_default($index)
+	public function setDefault($controller,$method)
 	{
-		if (!empty($index))
-		{
-			$this->default_view = $index;
-		}
+		$this->defaultController = $controller;
+		$this->defaultMethod = $method;
+	}
+	
+	/**
+	 * 设置子目录
+	 * @param $dir
+	 * @return unknown_type
+	 */
+	public function setSubDir($dir)
+	{
+		$this->subDir = trim($dir,'/\\');
+	}
+	
+	/**
+	 * 初始化默认配置
+	 * @return unknown_type
+	 */
+	public function init()
+	{
+		global $URI;
+
+		$c = $URI->getController();
+		$a = $URI->getMethod();
+		$this->controller = empty($c) ? $this->defaultController : $c;
+		$this->method = empty($a) ? $this->defaultMethod : $a;
 	}
 	
 	/**
@@ -47,45 +62,20 @@ class Application
 	 */
 	public function display()
 	{
-		if (empty($this->view_file))
+		$this->init();
+		
+		$c = load_controller($this->controller,$this->subDir);
+		
+		if (!$c)
 		{
-			$this->view_file = $this->default_view;
+			trigger_error("控制器 $this->controller 不存在",E_USER_ERROR);exit;
 		}
 		
-		if (empty($this->view_file) || !$this->is_tpl_exists($this->view_file))
+		if (!method_exists($c,$this->method))
 		{
-			$this->view_file = $this->cfg_view;
+			trigger_error("控制器 $this->controller 的方法 $this->method 不存在",E_USER_ERROR);exit;
 		}
-		
-		if (empty($this->view_file) || !$this->is_tpl_exists($this->view_file))
-		{
-			stop('No view is set.');
-		}
-		
-		$Engine = load_class('compile');
-		//print_r($Engine->ParseParam('name="efas" . it($name) , id=3',5));
-		$Engine->Show($this->view_file);
-	}
-	
-	/**
-	 * 获取视图路径
-	 * @param $view
-	 * @return unknown_type
-	 */
-	private function get_tpl_path($view)
-	{
-		return APP_PATH . '/views/' . $view . $this->ext;
-	}
-	
-	/**
-	 * 视图是否存在
-	 * @param $view
-	 * @return bool
-	 */
-	private function is_tpl_exists($view)
-	{
-		$ViewPath = $this->get_tpl_path($view);
-		
-		return file_exists($ViewPath);
+		$method = $this->method;
+		$c->$method();
 	}
 }

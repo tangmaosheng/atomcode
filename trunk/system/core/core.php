@@ -21,32 +21,33 @@ set_magic_quotes_runtime(0);
 #版本支持
 if(version_compare(PHP_VERSION,'5.0.0','<') )
 {
-	echo 'Your PHP version is too old,please upgrade to 5.0.0 or newer!';exit;
+	exit('Your PHP version is too old,please upgrade to 5.0.0 or newer!');
 }
 
-#常量定义
-$CorePath = __FILE__;
-define('SYS_PATH', str_replace('\\','/',substr($CorePath,0,-14) ) );
-define('BASE_PATH', str_replace('\\','/',dirname(SCRIPTFILE) ) );
-define('APP_PATH', BASE_PATH . '/' . APP);
+$SysStartTime = microtime(true);
+if (!is_float($SysStartTime))$SysStartTime = array_sum(explode(' ',$SysStartTime));
 
+#常量定义
+define('SYS_PATH', str_replace('\\','/',substr(__FILE__,0,-14) ) );
+define('BASE_PATH', str_replace('\\','/',dirname(SCRIPTFILE) ) );
+
+require 'config.php';
 require 'common.php';
-require 'ac_base.class.php';
 #默认错误处理
 set_error_handler('_error_handler');
-set_exception_handler('_exception_handler');
 
 $var = new stdClass();
-$var->config = get_config();
+$var->config = & get_config();
 #时区设置
 date_default_timezone_set($var->config['time_zone']);
 
-$URI = load_class('uri');
-$var->get = $URI->get_get();
-$var->input = $var->get;
-$var->method = strtolower($_SERVER['REQUEST_METHOD']);
+$URI = load_factory('uri');
 
-if ($var->method == 'post')
+$var->get = $URI->getGet();
+$var->input = $var->get;
+$var->request_method = strtolower($_SERVER['REQUEST_METHOD']);
+
+if ($var->request_method == 'post')
 {
 	foreach ($_POST as $k => $v)
 	{
@@ -54,7 +55,6 @@ if ($var->method == 'post')
 		$var->input[$k] = $var->post[$k];
 	}
 }
-
 load_class('Cookie',0);
 foreach ($_COOKIE as $k => $v)
 {
@@ -64,15 +64,12 @@ foreach ($_COOKIE as $k => $v)
 load_class('Session',0);
 Session::start();
 $var->session = &$_SESSION;
+load_class('compile',false);
 
-require 'application.php';
-require 'model.php';
+require 'controller.php';
 require 'container.php';
-
-
-
-
-
+require 'model.php';
+require 'application.php';
 
 
 

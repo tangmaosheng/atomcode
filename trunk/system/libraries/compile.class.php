@@ -11,13 +11,6 @@
  * @version 1.0 2009-10-11
  * @filesource 
  */
-define('TAG_STATEMENT',1);//流程控制,如if, for, foreach, ...
-define('TAG_MID_STAT',2);//中间流程控制,如 break, else, elseif, continue
-define('TAG_END_STAT',4);//流程控制结束,如 endif, endfor, endforeach
-define('TAG_BLOCK',8); //块状标签(自动循环标签) {?news.listnews}
-define('TAG_BLOCK_SELF_END',16); //自动结束的块状标签(自动循环标签){?news.listnews /}
-define('TAG_FUNC',32); //函数调用标签[@substr($sdf)]
-define('TAG_VARIABLE',64); // 可直接输出的变量标签[$name]
 /**
  * 编译类
  * * * * * * * * * * * * * * * * * * * * * * * *
@@ -43,16 +36,16 @@ define('TAG_VARIABLE',64); // 可直接输出的变量标签[$name]
  */
 class Compile
 {
-	private $Tags;
-	private $PairTags;
-	private $ContainerTags;
-	private $ContainerCount;
-	private $Depth;
-	public  $IsUserControl;
-	public  $IsIncluded;
-	public  $LineNum;
+	private $tags;
+	private $pairTags;
+	private $containerTags;
+	private $containerCount;
+	private $_depth;
+	public  $isUserControl;
+	public  $isIncluded;
+	public  $lineNum;
 	
-	private $TplVar;
+	private $tplVar;
 	public $config;
 	public $input;
 	public $get;
@@ -60,17 +53,20 @@ class Compile
 	public $cookie;
 	public $session;
 	
-	private $ViewName;
-	private $ViewPath;
-	private $ViewExt;
+	private $viewName;
+	private $viewPath;
+	private $viewExt;
 	
-	private $SourceFile;
-	private $CacheFile;
-	private $DataFile;
-	private $TimeFile;
+	private $sourceFile;
+	private $cacheFile;
+	private $dataFile;
+	private $timeFile;
 	
-	private $Data;
+	private $data;
+	private $delayData;
 	
+	private $tagValue;
+	private $tagIndex;
 	/**
 	 * 做好初始化工作.
 	 * @return unknown_type
@@ -84,14 +80,52 @@ class Compile
 		$this->post		= $var->post;
 		$this->cookie	= $var->cookie;
 		$this->session	= $var->session;
-		$this->ViewExt	= $var->config['view_ext'] ? $var->config['view_ext'] : '.html';
-		$this->IsUserControl	= false;
-		$this->IsIncluded	= false;
-		$this->LineNum	= 0;
-		$this->Depth	= -1;
-		$this->ContainerCount = -1;
 		
-		$this->Tags = $this->PairTags = $this->ContainerTags = array();
+		$this->viewExt	= $var->config['view_ext'] ? $var->config['view_ext'] : '.html';
+		$this->isUserControl	= false;
+		$this->isIncluded	= false;
+		
+		$this->lineNum	= 0;
+		$this->_depth	= 0;
+		$this->containerCount = -1;
+		
+		$this->tagIndex = $this->tagValue = $this->tags = $this->pairTags = $this->containerTags = array();
+	}
+	
+	/**
+	 * 为模板变量赋值
+	 * @param $name
+	 * @param $value
+	 * @return unknown_type
+	 */
+	public function assign($name,$value)
+	{
+		$this->tagValue[0][$name] = $value;
+	}
+	
+	/**
+	 * 显示缓存中的文件
+	 * @param $view
+	 * @return void
+	 */
+	public function show($view)
+	{
+		echo $this->getData($view);
+	}
+	
+	/**
+	 * 加载用控件
+	 * @param $control
+	 * @param $param
+	 * @return unknown_type
+	 */
+	public function showUserControl($control,$param)
+	{
+		$this->isUserControl = true;
+		$this->tplVar = $param;
+		$control = str_replace('.','/',$control);
+		
+		$this->show($control);
 	}
 	
 	/**
@@ -100,12 +134,11 @@ class Compile
 	 * @param $view
 	 * @return void
 	 */
-	private function Refresh()
+	private function refresh()
 	{
-		header('Content-Type:text/html;charset=' . $this->config['CHARSET']);
-		$this->GetTags();
-		$this->ParseTags();
-		$this->RefreshTplCache();
+		$this->getTags();
+		$this->parseTags();
+		$this->refreshTplCache();
 	}
 	
 	/**
@@ -116,343 +149,220 @@ class Compile
 	 * 
 	 * @return unknown_type
 	 */
-	private function GetTags()
+	private function getTags()
 	{
-		$Tags = array();
-		$Tag = array();
-		$TagString = ''; #标签内容
-		$TagReady = ''; #标签起始开始
-		$StartPos = -1; #标签开始位置
+		$tags = array();
+		$tag = array();
+		$tag_string = ''; #标签内容
+		$tag_ready = ''; #标签起始开始
+		$start_pos = -1; #标签开始位置
 		
-		$NowPos = 0; #当前程序运行位置
+		$now_pos = 0; #当前程序运行位置
 		
-		$NowLine = 1;
-		$NowOffset = 0;
+		$now_line = 1;
+		$now_offset = 0;
 		
-		$InQuote = false; #在引号内
-		$TagStart = false;#标签正常开始
-		$Slashing = false;#正在转义
+		$in_quote = false; #在引号内,仅能在标签内,外面不计
+		$tag_start = false;#标签正常开始
+		$slashing = false;#正在转义,仅能在引号内,外面不计
 		
-		$QuoteChar = ''; #引号符号
+		$quote_char = ''; #引号符号
 		
-		$fp	= fopen($this->SourceFile,'r');
+		$fp	= fopen($this->sourceFile,'r');
 		
 		while(false !== ($char = fgetc($fp)))
 		{
 			if ($char == "\n")
 			{
-				$NowLine ++;
-				$NowOffset =0;
+				$now_line ++;
+				$now_offset =0;
 			}
 			else
 			{
-				$NowOffset ++;
+				$now_offset ++;
 			}
 			
-			if ($Slashing)
+			if ($slashing)
 			{
-				if ($TagStart)
-				{
-					/*
-					if ($char != '"' && $char != "'" && $char != "\\")
-					{
-						$TagString .= '\\';
-					}*/
-					$TagString .= '\\';
-					$TagString .= $char;
-				}
-				else
-				{
-					//Pass.in html
-				}
-				$Slashing = false;
+				$tag_string .= $char;
+				$slashing = false;
 			}
 			else #not slashing
 			{
-				if ($InQuote)
+				if ($in_quote)
 				{
+					$tag_string .= $char;
 					if ($char == '"' || $char == "'") #special chars
 					{
-						$TagString .= $char;
-						if ($QuoteChar == $char)
+						if ($quote_char == $char)
 						{
-							$InQuote = false;
+							$in_quote = false;
 						}
 					}
 					elseif ($char == '\\')
 					{
-						$Slashing = true;
-					}
-					else
-					{
-						$TagString .= $char;
-					} #end special chars
+						$slashing = true;
+					}#end special chars
 				}
-				else #not in quote
+				else #not in quote && not slashing
 				{
-					if ($char == '\\') #special chars
+					/*
+					 * 在标签内只判断 引号,\,结束符号 ]}
+					 * all I know right now is end or continue.
+					 */
+					if ($tag_start)
 					{
-						if ($TagStart)
+						if($char == '"' || $char == "'")
 						{
-							#error!!!!!!!!!!
-							die('line:' . $NowLine . '<br>char:' . $NowOffset);
+							$in_quote = true;
+							$quote_char = $char;
 						}
-						else
+						elseif($char == ']' || $char == '}')
 						{
-							$Slashing = true;
-						}
-					}
-					elseif($char == '"' || $char == "'")
-					{
-						if ($TagStart)
-						{
-							$InQuote = true;
-							$TagString .= $char;
-							$QuoteChar = $char;
-						}
-						else
-						{
-							#ignore it.
-						}
-					}
-					elseif ($char == '[' || $char == '{')
-					{
-						if ($TagStart)
-						{
-							#error!!!!!!!!!!
-							die('line:' . $NowLine . '<br>char:' . $NowOffset);
-						}
-						$TagReady = $char;
-						$StartPos = $NowPos;
-						$TagStart = false;
-						$TagString = '';
-					}
-					elseif ($char == '@' || $char == '$' || $char == '?')
-					{
-						if ($TagReady == '[' && ($char == '$' || $char == '@') && $StartPos == $NowPos - 1)
-						{
-							$TagStart = true;
-							$TagReady .= $char;
-						}
-						elseif ($TagReady == '{' && $char == '?' && $StartPos == $NowPos - 1)
-						{
-							$TagStart = true;
-							$TagReady .= $char;
-						}
-						else
-						{
-							if ($TagStart)
+							if (($tag_ready{0} == '{' && $char == '}') || ($tag_ready{0} == '[' && $char == ']'))
 							{
-								#error!!!!!!!!!!
-								$TagString .= $char;
-							}
-							else
-							{
-								$TagReady = '';
-								//normal chars,no need to 
-							}
-						}
-					}
-					elseif($char == ']' || $char == '}')
-					{
-						if ($TagStart)
-						{
-							if (($TagReady{0} == '{' && $char == '}') || ($TagReady{0} == '[' && $char == ']'))
-							{
-								$Tag['Start']	= $StartPos;
-								$Tag['End']		= $NowPos;
-								$Tag['NameSpace'] = $TagReady;
-								$Tag['Body']	= $TagString;
-								$Tag['Index']	= count($Tags);
+								$tag['Start']	= $start_pos;
+								$tag['End']		= $now_pos;
+								$tag['NameSpace'] = $tag_ready;
+								$tag['Body']	= $tag_string;
+								$tag['Line']	= $now_line;
 								
-								$Tags[] = $Tag;
+								$tags[] = $tag;
 								
-								$TagReady = '';
-								$TagString = '';
-								$TagStart = false;
-								$TagReady = '';
-							}
-							else
-							{
-								#error!!!!!!!!!!
-								die('line:' . $NowLine . '<br>char:' . $NowOffset);
+								$tag_ready = '';
+								$tag_string = '';
+								$tag_start = false;
+								$tag_ready = '';
 							}
 						}
+						
+						if ($tag_ready)$tag_string .= $char;
 					}
+					/*
+					 * Now,I am looking for Tag Start flag,'[', '{', '$', '@', '?' and my aids
+					 */
 					else
 					{
-						if ($TagStart)
+						if ($char == '[' || $char == '{')
 						{
-							$TagString .= $char;
+							$tag_ready = $char;
+							$start_pos = $now_pos;
+							$tag_string = '';
+						}
+						elseif ($char == '@' || $char == '$' || $char == '?')
+						{
+							if ( ($tag_ready == '[' && ($char == '$' || $char == '@'))
+							   ||($tag_ready == '{' && $char == '?'))
+							{
+								$tag_start = true;
+								$tag_ready .= $char;
+							}
 						}
 					}
 				} #end in quote
 			} #end slashing
 			
-			$NowPos ++;
+			$now_pos ++;
 		}
 		
 		fclose($fp);
 		
-		$this->Tags = $Tags;
+		$this->tags = $tags;
 	}
 	
 	/**
 	 * 解析标签
 	 * 标签分为输出和控制标签两大类,要转换之前,先认证各标签是否正确.
-	 * ***
-	 * 控制标签 if/for/foreach
-	 * 格式: {?if $name == 'dd' && $0index == 0}
-	 * 读出为:
-	 * TAG_STATEMENT
-	 * if
-	 * $name == 'dd' && $0index == 0
-	 * 解析为:<?php if( $this->TagValue[5]['name] == 'dd' && $this->TagIndex[0] == 0 ) { ?>
-	 * 数据部分支持:no
-	 * ***
-	 * 自动循环标签 news.newslist ...(自动调取容器)
-	 * 格式(例): {?news.newslist cid=0,order="pubtime desc,id desc"}
-	 * 读出为:
-	 * TAG_BLOCK
-	 * news.newslist
-	 * $param['cid']=0,$param['order']="pubtime desc,id desc"
-	 * 解析为:<?php if(!empty($this->TagGroup[0]->GetData()))foreach($this->TagGroup[0]->Data as $this->TagIndex[0] => $this->TagValue[0]){ ?>
-	 * 如果不是二维数组则解析为:<?php if(!empty($this->TagGroup[0]->GetData())){ $this->TagIndex[0] = 0;$this->TagValue[0]=$this->TagGroup[0]->Data;?>
-	 * 数据部分支持:$this->TagGroup = unserial($DataString);//read from *.data
-	 * ***
-	 * 用户控件标签UserControl.ad.top.flash ...
-	 * 格式(例): {?UserControl.ad.top.flash size="360,40" /}
-	 * 读出为:
-	 * TAG_BLOCK_SELF_END
-	 * UserControl.ad.top.flash
-	 * $param['size'] = "360,40"
-	 * 解析为:<?php $uc=new compile();$uc->ShowUserControl('ad.top.flash',$param); ?>
-	 * 数据部分支持:no
-	 * ***
-	 * 超级变量调用:config/cookie/session/get/post/input/TplVar
-	 * 格式:[$get.id+$config.offset + 1]
-	 * 读出为:
-	 * TAG_VARIBLE
-	 * get.id
-	 * $param = '+$config.offset + 1'
-	 * 解析为:<?php echo $this->get['id'] + $this->config['offset'] + 1; ?>
-	 * ***
-	 * 普通变量调用,用于调取自动循环标签中每一项的属性值.
-	 * 格式:[$name] 或 [$5name]
-	 * 读出为:
-	 * TAG_VARIBLE
-	 * name
-	 * $param['depth']=5 //深度,默认为当前;
-	 * 解析为:<?php echo $this->TagValue[5]['name']; ?>
-	 * ***
-	 * 公用函数调用
-	 * 格式:[@substr($name,0,4)]
-	 * 读出为
-	 * TAG_BLOCK_FUNC
-	 * $param = "$name,0,4";
-	 * 解析为:<?php echo substr($this->TagValue[5]['name'],0,4); ?>
 	 * @return void
 	 */
-	private function ParseTags()
+	private function parseTags()
 	{
 		
-		foreach ($this->Tags as &$tag)
+		foreach ($this->tags as &$tag)
 		{
 			if ($tag['NameSpace'] == '[$')
 			{
-				$tag['type'] = TAG_VARIABLE;
-				$tag['php'] = $this->GetPHP('echo ' . $this->ParseValue('$' . $tag['Body'],$this->Depth) . ';');
+				$tag['php'] = $this->getPHP('echo ' . $this->parseValue('$' . $tag['Body'],$this->_depth) . ';');
 			}
 			elseif($tag['NameSpace'] == '[@')
 			{
-				$tag['type'] = TAG_FUNC;
-				$tag['php'] = $this->GetPHP('echo ' . $this->ParseValue($tag['Body'],$this->Depth) . ';');
+				$tag['php'] = $this->getPHP('echo ' . $this->parseValue($tag['Body'],$this->_depth) . ';');
 			}
 			else
 			{
-				preg_match('/^[\w.]+/',$tag['Body'],$Segment);
-				preg_match('/[^\w.].*/',$tag['Body'],$Segment1);
-				$Segment[1] = $Segment1[0];
-				$Segment[0] = strtolower($Segment[0]);
-				$Segment[1] = trim($Segment[1]);
-				$SelfEnd	= (bool)(substr($Segment[1], -1) == '/');
+				preg_match('/^[\w\.]+/',$tag['Body'],$segment);
+				preg_match('/[^\w\.].*/',$tag['Body'],$segment1);
+				$segment[1] = $segment1[0];
+				$segment[0] = strtolower($segment[0]);
+				$segment[1] = trim($segment[1]);
+				$self_end	= (bool)(substr($segment[1], -1) == '/');
 				
-				if (in_array($Segment[0],array('if','for','foreach')))
+				if (in_array($segment[0],array('if','for','foreach')))
 				{
-					$tag['type'] = TAG_STATEMENT;
-					$tag['php'] = $this->GetPHP($Segment[0] . ' (' . $this->ParseValue($Segment[1],$this->Depth) . ') {');
-					$this->PairTags[] = $Segment[0];
+					$tag['php'] = $this->getPHP($segment[0] . ' (' . $this->parseValue($segment[1],$this->_depth) . ') {');
+					array_push($this->pairTags,$segment[0]);
 				}
-				elseif (in_array($Segment[0],array('break','continue')))
+				elseif (in_array($segment[0],array('break','continue')))
 				{
-					$tag['type'] = TAG_MID_STAT;
-					$tag['php'] = $this->GetPHP($Segment[0] . ';');
+					$tag['php'] = $this->getPHP($segment[0] . ';');
 				}
-				elseif($Segment[0] == 'elseif')
+				elseif($segment[0] == 'elseif')
 				{
-					if(!in_array('if',$this->PairTags)) die('elseif处于if之外');
-					$tag['type'] = TAG_MID_STAT;
-					$tag['php'] = $this->GetPHP('}elseif (' . $this->ParseValue($Segment[1],$this->Depth) . ') {');
+					if('if' != end($this->pairTags)) trigger_error('elseif处于if之外,行:' . $tag['Line'], E_USER_ERROR);
+					$tag['php'] = $this->getPHP('}elseif (' . $this->parseValue($segment[1],$this->_depth) . ') {');
 				}
-				elseif($Segment[0] == 'else')
+				elseif($segment[0] == 'else')
 				{
-					if(!in_array('if',$this->PairTags)) die('elseif处于if之外');
-					$tag['type'] = TAG_MID_STAT;
-					$tag['php'] = $this->GetPHP('}else{');
+					if('if' != end($this->pairTags)) trigger_error('elseif处于if之外,行:' . $tag['Line'],E_USER_ERROR);
+					$tag['php'] = $this->getPHP('}else{');
 				}
-				elseif (in_array($Segment[0],array('endif','endfor','endforeach')))
+				elseif (in_array($segment[0], array('endif', 'endfor', 'endforeach')))
 				{
-					if (substr($Segment[0],3) != array_pop($this->PairTags))
+					if (substr($segment[0],3) != end($this->pairTags))
 					{
-						die($Segment[0] . '与前一个未闭合的标签不匹配!!');
+						trigger_error($segment[0] . '与前一个未闭合的标签不匹配!!,行:' . $tag['Line'],E_USER_ERROR);
 					}
 					
-					$tag['type'] = TAG_END_STAT;
-					$tag['php'] = $this->GetPHP('}');
+					array_pop($this->pairTags);
+					$tag['php'] = $this->getPHP('}');
 				}
-				elseif(strpos($Segment[0],'usercontrol.') === 0)
+				elseif(strpos($segment[0],'use.') === 0)
 				{
-					$tag['type'] = TAG_BLOCK_SELF_END;
-					$Segment[0] = substr($Segment[0],12);
-					$tag['php'] = $this->GetUserControlPHP($Segment[0],$Segment[1],$this->Depth);
+					$segment[0] = substr($segment[0],4);
+					$tag['php'] = $this->getUserControlPHP($segment[0],$segment[1],$this->_depth);
 				}
-				elseif(strpos($Segment[0],'array.') === 0)
+				elseif(strpos($segment[0],'loop.') === 0)
 				{
-					$tag['type'] = TAG_BLOCK;
-					$this->Depth ++;
-					$this->ContainerCount ++;
-					$Segment[0] = substr($Segment[0],6);
-					$tag['php'] = $this->GetArrayPHP($Segment[0],$Segment[1],$this->Depth);
+					$this->_depth ++;
+					$this->containerCount ++;
+					$segment[0] = substr($segment[0],5);
+					$tag['php'] = $this->getBlockPHP($segment[0],$segment[1],$this->_depth);
 				}
-				elseif($Segment[0] == 'include')
+				elseif($segment[0] == 'include')
 				{
-					$tag['type'] = TAG_BLOCK_SELF_END;
-					$tag['php'] = $this->GetIncludePHP($Segment[1],$this->Depth);
+					$tag['php'] = $this->getIncludePHP($segment[1],$this->_depth);
 				}
-				elseif($Segment[0] == 'end')
+				elseif($segment[0] == 'end')
 				{
-					if (empty($this->Tags) || in_array(array_shift($this->PairTags),array('for','foreach','if')))
+					if (empty($this->tags) || in_array(array_pop($this->pairTags),array('for','foreach','if')))
 					{
-						die($Segment[0] . '与前一个未闭合的标签不匹配!!');
+						trigger_error($segment[0] . '与前一个未闭合的标签不匹配!!,行:' . $tag['Line'],E_USER_ERROR);
 					}
-					$tag['type'] = TAG_END_STAT;
-					$tag['php'] = $this->GetPHP('}');
-					$this->Depth --;
+					$tag['php'] = $this->getPHP('}');
+					$this->_depth --;
 				}
 				else
 				{
-					if(substr($Segment[0],-1) == '/')
+					if(substr($segment[0],-1) == '/')
 					{
-						$tag['type'] = TAG_BLOCK_SELF_END;
 					}
 					else
 					{
-						$this->Depth ++;
-						$this->ContainerCount ++;
-						$tag['type'] = TAG_BLOCK;
+						$this->_depth ++;
+						$this->containerCount ++;
 					}
 					
-					$tag['php'] = $this->GetBlockPHP($Segment[0],$Segment[1],$this->Depth);
+					$tag['php'] = $this->getArrayPHP($segment[0],$segment[1],$this->_depth);
 				}
 			}
 		}
@@ -463,35 +373,35 @@ class Compile
 	 * @param $view
 	 * @return bool
 	 */
-	private function NeedRefresh($view)
+	private function needRefresh($view)
 	{
-		if ($this->IsUserControl)
+		if ($this->isUserControl)
 		{
-			$this->SourceFile = APP_PATH . '/usercontrols/' . $view . $this->ViewExt;
-			$this->CacheFile	= APP_PATH . '/cache/usercontrols/' . $view . '.php';
-			$this->DataFile	= APP_PATH . '/cache/ucdatas/' . $view . '.php';
-			$this->TimeFile	= APP_PATH . '/cache/ucdatas/' . $view . '.t';
+			$this->sourceFile = SYS_PATH . '/usercontrols/' . $view . $this->viewExt;
+			$this->cacheFile	= APP_PATH . '/cache/usercontrols/' . $view . '.php';
+			$this->dataFile	= APP_PATH . '/cache/ucdatas/' . $view . '.php';
+			$this->timeFile	= APP_PATH . '/cache/ucdatas/' . $view . '.t';
 		}
 		else
 		{
-			$this->SourceFile = APP_PATH . '/views/' . $view . $this->ViewExt;
-			$this->CacheFile	= APP_PATH . '/cache/views/' . $view . '.php';
-			$this->DataFile	= APP_PATH . '/cache/datas/' . $view . '.php';
-			$this->TimeFile	= APP_PATH . '/cache/datas/' . $view . '.t';
+			$this->sourceFile = APP_PATH . '/views/' . $view . $this->viewExt;
+			$this->cacheFile	= APP_PATH . '/cache/views/' . $view . '.php';
+			$this->dataFile	= APP_PATH . '/cache/datas/' . $view . '.php';
+			$this->timeFile	= APP_PATH . '/cache/datas/' . $view . '.t';
 		}
-		if (!file_exists($this->SourceFile) || !is_file($this->SourceFile))
+		if (!file_exists($this->sourceFile) || !is_file($this->sourceFile))
 		{
-			$this->NoFile();
+			$this->noFile();
 			return false;
 		}
 		
-		if (!file_exists($this->CacheFile) || !file_exists($this->DataFile) || !file_exists($this->TimeFile))
+		if (!file_exists($this->cacheFile) || !file_exists($this->dataFile) || !file_exists($this->timeFile))
 		{
 			return true;
 		}
 		
-		$SourceTime = filemtime($this->SourceFile);
-		$DestTime	= file_get_contents($this->TimeFile);
+		$SourceTime = filemtime($this->sourceFile);
+		$DestTime	= file_get_contents($this->timeFile);
 		
 		if ($SourceTime > $DestTime)
 		{
@@ -505,119 +415,20 @@ class Compile
 	 * 文件不存在
 	 * @return unknown_type
 	 */
-	private function NoFile()
+	private function noFile()
 	{
-		if (!($this->IsIncluded || $this->IsUserControl)) #正常文件
+		if (!($this->isIncluded || $this->isUserControl)) #正常文件
 		{
 			header('HTTP/1.1 404 Not Found');exit;
 		}
-		elseif ($this->IsIncluded) #包含文件
+		elseif ($this->isIncluded) #包含文件
 		{
-			trigger_error('包含文件不存在!<br>源:' . APP_PATH . '/views/' . $this->ViewPath . $this->ViewExt . '<br />行:' . $this->LineNum,E_ERROR);
+			trigger_error('包含文件不存在!<br>源:' . APP_PATH . '/views/' . $this->viewPath . $this->viewExt . '<br />行:' . $this->lineNum,E_ERROR);
 		}
-		elseif ($this->IsUserControl) #用户控件
+		elseif ($this->isUserControl) #用户控件
 		{
-			trigger_error('用户控件不存在!<br>源:' . APP_PATH . '/views/' . $this->ViewPath . $this->ViewExt . '<br />行:' . $this->LineNum,E_ERROR);
+			trigger_error('用户控件不存在!<br>源:' . APP_PATH . '/views/' . $this->viewPath . $this->viewExt . '<br />行:' . $this->lineNum,E_ERROR);
 		}
-	}
-	
-	/**
-	 * 显示缓存中的文件
-	 * @param $view
-	 * @return void
-	 */
-	public function Show($view)
-	{
-		echo $this->GetData($view);
-	}
-	
-	/**
-	 * 加载用控件
-	 * @param $control
-	 * @param $param
-	 * @return unknown_type
-	 */
-	public function ShowUserControl($control,$param)
-	{
-		$this->IsUserControl = true;
-		$this->TplVar = $param;
-		$control = str_replace('.','/',$control);
-		
-		$this->Show($control);
-	}
-	
-	public function GetData($view)
-	{
-		$this->ViewPath = $view;
-		$this->ViewName = end(explode('/',$view));
-		
-		if ($this->NeedRefresh($view))
-		{
-			$this->Refresh();
-		}
-		if (!$this->IsIncluded && !$this->IsUserControl)
-		{
-			if ($this->config['gzip'])
-			{
-				ob_start('ob_gzhandler');
-			}
-			else
-			{
-				ob_start();
-			}
-		}
-		
-		include $this->DataFile;
-		include $this->CacheFile;
-		
-		if (!$this->IsIncluded && !$this->IsUserControl)
-		{
-			$content = ob_get_contents();
-			ob_end_flush();
-		}
-		
-		return $content;
-	}
-	
-	/**
-	 * 取得变量的PHP形式
-	 * @param $name
-	 * @param $depth
-	 * @return unknown_type
-	 */
-	public function GetRealVarible($name,$depth=0)
-	{
-		if (strpos($name,'.') !== false)
-		{
-			$NameArray = explode('.',$name);
-		}
-		else
-		{
-			$NameArray [0] = $name;
-		}
-		
-		if (in_array(strtolower($NameArray[0]),array('config','input','get','post','cookie','session','tplvar')))
-		{
-			return '$this->' . array_shift($NameArray) . (count($NameArray) > 0 ? "['" . implode("']['",$NameArray) . "']" : '');
-		}
-		else
-		{
-			if(preg_match('/^([\d]+)(.+)/',$NameArray[0],$array))
-			{
-				$depth = min($array[1],$depth);
-				$NameArray[0] = $array[2];
-			}
-			
-			return '$this->TagValue[' . $depth . ']' .  "['" . implode("']['",$NameArray) . "']";
-		}
-	}
-	
-	/**
-	 * 取得函数的PHP形式
-	 */
-	public function GetRealFunction($name)
-	{
-		return str_replace('.','::',$name);
 	}
 	
 	/**
@@ -627,7 +438,7 @@ class Compile
 	 * @param $param
 	 * @return unknown_type
 	 */
-	public function ParseParam($param,$depth)
+	public function parseParam($param,$depth)
 	{
 		$param = trim($param);
 		if(empty($param))return array();
@@ -638,6 +449,7 @@ class Compile
 		
 		$InQuote = false;
 		$Slashing = false;
+		$Bracket = 0;
 		$QuoteChar = '';
 		
 		$var = '';
@@ -660,15 +472,15 @@ class Compile
 				{
 					$BeforeEqual = false;
 					$name = trim($name);
-					if (preg_match('/\s/',$char))
+					if (preg_match('/\s/',$name))
 					{
-						die('属性名包含空白字符!');
+						trigger_error($param . '属性名包含空白字符!',E_USER_ERROR);exit;
 					}
 				}
 				else
 				#no special chars in attribute name
 				{
-					die($name . $char . '非法字符');
+					trigger_error($param . '属性名包含非法字符',E_USER_ERROR);exit;
 				}
 			}
 			else
@@ -715,18 +527,30 @@ class Compile
 						{
 							$InVar = false;
 							
-							if (empty($var)) die('变量格式错误.');
-							$value .= $this->GetRealVarible($var,$depth);
+							if (empty($var))
+							{
+								trigger_error($param . '变量格式错误.',E_USER_ERROR);exit;
+							}
+							$value .= $this->getRealVarible($var,$depth);
 							$value .= $spliter;
 							
 							if ($char == ',')
 							{
-								$return[$name] = $value;
-								$name = '';
-								$value = '';
-								$BeforeEqual = true;
-							}else
+								if ($Bracket < 1){
+									$BeforeEqual = true;
+									$return[$name] = $value;
+									$name = '';
+									$value = '';
+								}
+								else
+								{
+									$value .= $char;
+								}
+							}
+							else
 							{
+								if ($char == ')')$Bracket --;
+								if ($char == '(')$Bracket ++;
 								$value .= $char;
 							}
 							
@@ -746,8 +570,8 @@ class Compile
 						if ($char == '(')
 						{
 							$Infunc = false;
-							
-							$value .= $this->GetRealFunction($func);
+							$Bracket ++;
+							$value .= $this->getRealFunction($func);
 							$value .= $char;
 							$func = '';
 						}
@@ -755,10 +579,13 @@ class Compile
 						{
 							$InVar = true;
 							$value .= $func;
+							$Infunc = false;
 							$func = '';
 						}
 						else
 						{
+							if ($char == ')')$Bracket --;
+							if ($char == '(')$Bracket ++;
 							$func .= $char;
 						}
 					}#end infunc
@@ -782,13 +609,21 @@ class Compile
 						}
 						elseif ($char == ',')
 						{
-							$return[$name] = $value;
-							$name = '';
-							$value = '';
-							$BeforeEqual = true;
+							if ($Bracket < 1){
+								$BeforeEqual = true;
+								$return[$name] = $value;
+								$name = '';
+								$value = '';
+							}
+							else
+							{
+								$value .= $char;
+							}
 						}
 						else
 						{
+							if ($char == ')')$Bracket --;
+							if ($char == '(')$Bracket ++;
 							$value .= $char;
 						}
 					}
@@ -800,8 +635,11 @@ class Compile
 		{
 			$InVar = false;
 			
-			if (empty($var)) die('变量格式错误.');
-			$value .= $this->GetRealVarible($var,$depth);
+			if (empty($var)) 
+			{
+				trigger_error($param . '变量格式错误.',E_USER_ERROR);exit;
+			}
+			$value .= $this->getRealVarible($var,$depth);
 			$var = '';
 			$spliter = '';
 			$return[$name] = $value;
@@ -826,12 +664,12 @@ class Compile
 	/**
 	 * 格式化字符串为相应的PHP代码
 	 * 如:$name . substr($content,0,10) . $config.filename . '...'
-	 * 要解析为 $this->GetRealVarible('name',$depth) . ' . ' . $this->GetRealFunction('substr') . '(' . $this->GetRealVarible('content',$depth) . ',0,10)'
-	 *  .  $this->GetRealVarible('config.filename',$depth) . ' . \'...\''
+	 * 要解析为 $this->getRealVarible('name',$depth) . ' . ' . $this->getRealFunction('substr') . '(' . $this->getRealVarible('content',$depth) . ',0,10)'
+	 *  .  $this->getRealVarible('config.filename',$depth) . ' . \'...\''
 	 * @param $value
 	 * @return unknown_type
 	 */
-	public function ParseValue($value, $depth)
+	public function parseValue($value, $depth)
 	{
 		$InQuote = false;
 		$Slashing = false;
@@ -889,8 +727,11 @@ class Compile
 					{
 						$InVar = false;
 						
-						if (empty($var)) die('变量格式错误.');
-						$return .= $this->GetRealVarible($var,$depth);
+						if (empty($var))
+						{
+							trigger_error('变量格式错误.',E_USER_ERROR);exit;
+						}
+						$return .= $this->getRealVarible($var,$depth);
 						$return .= $spliter;
 						$return .= $char;
 						$var = '';
@@ -900,16 +741,11 @@ class Compile
 				elseif ($Infunc)
 				# (则结束函数,
 				{
-					/*if (preg_match('/[\w]/',$char))
-					{
-						$func .= $char;
-					}
-					else*/
 					if ($char == '(')
 					{
 						$Infunc = false;
 						
-						$return .= $this->GetRealFunction($func);
+						$return .= $this->getRealFunction($func);
 						$return .= $char;
 						$func = '';
 					}
@@ -917,6 +753,7 @@ class Compile
 					{
 						$InVar = true;
 						$return .= $func;
+						$Infunc = false;
 						$func = '';
 					}
 					else
@@ -954,8 +791,11 @@ class Compile
 		{
 			$InVar = false;
 			
-			if (empty($var)) die('变量格式错误.');
-			$return .= $this->GetRealVarible($var,$depth);
+			if (empty($var))
+			{
+				trigger_error($value . '变量格式错误.',E_USER_ERROR);exit;
+			}
+			$return .= $this->getRealVarible($var,$depth);
 			$var = '';
 			$spliter = '';
 		}
@@ -972,9 +812,9 @@ class Compile
 	 * @param $code
 	 * @return unknown_type
 	 */
-	public function GetPHP($code)
+	public function getPHP($code)
 	{
-		return '<' . "?php\n" . $code . "\n?" . ">";
+		return "\n<" . "?php " . $code . "?" . ">\n";
 	}
 	
 	/**
@@ -984,10 +824,10 @@ class Compile
 	 * @param $depth
 	 * @return unknown_type
 	 */
-	public function GetUserControlPHP($userControl,$param,$depth)
+	public function getUserControlPHP($userControl,$param,$depth)
 	{
 		$param = trim($param,'/');
-		$param = $this->ParseParam($param,$depth);
+		$param = $this->parseParam($param,$depth);
 		$ParamStr = "\$param=array();\n";
 		
 		foreach($param as $k => $v)
@@ -995,17 +835,17 @@ class Compile
 			$ParamStr .= "\$param['$k']=$v;\n";
 		}
 		
-		$ParamStr .=  "\$uc=new Compile();\n\$uc->ShowUserControl('$userControl',\$param);";
-		return $this->GetPHP($ParamStr);
+		$ParamStr .=  "\$uc=new Compile();\n\$uc->showUserControl('$userControl',\$param);";
+		return $this->getPHP($ParamStr);
 	}
 	
-	public function GetIncludePHP($param,$depth)
+	public function getIncludePHP($param,$depth)
 	{
 		$param = trim($param,'/');
-		$param = $this->ParseValue($param,$depth);
+		$param = $this->parseValue($param,$depth);
 	
-		$ParamStr .=  "\$uc=new Compile();\n\$uc->IsIncluded=true;\n\$uc->Show('$param');";
-		return $this->GetPHP($ParamStr);
+		$ParamStr .=  "\$uc=new Compile();\n\$uc->IsIncluded=true;\n\$uc->show('$param');";
+		return $this->getPHP($ParamStr);
 	}
 	
 	/**
@@ -1015,62 +855,182 @@ class Compile
 	 * @param $depth
 	 * @return unknown_type
 	 */
-	public function GetBlockPHP($container,$param,$depth)
+	public function getBlockPHP($container,$param,$depth)
 	{
 		$param = trim($param,'/');
-		$param = $this->ParseParam($param,$depth);
-		$ParamStr = "\$param=array();\n";
+		$param = $this->parseParam($param,$depth);
+		
+		if($container == 'pager') $tem =  &$this->delayData ;
+		else $tem = &$this->data;
+		$tem = "\$param=array();\n";
 		
 		foreach($param as $k => $v)
 		{
-			$ParamStr .= "\$param['$k']=$v;\n";
+			$tem .= "\$param['$k']=$v;\n";
 		}
 		
-		$this->Data .= "\$this->ContainerTags[$this->ContainerCount] = new TagData();\n";
+		$tem .= "\$this->containerTags[$this->containerCount] = new TagData();\n";
 		$container = explode('.',$container);
-		$this->Data .= "\$this->ContainerTags[$this->ContainerCount]->Method = '" . array_pop($container) . "';\n";
-		$this->Data .= "\$this->ContainerTags[$this->ContainerCount]->Container = '" . implode('.',$container) . "';\n";
+		$tem .= "\$this->containerTags[$this->containerCount]->Method = '" . array_pop($container) . "';\n";
+		$tem .= "\$this->containerTags[$this->containerCount]->Container = '" . implode('.',$container) . "';\n";
+		$tem .=  "\$this->containerTags[$this->containerCount]->getData(\$param);\n";
 		
-		$ParamStr .=  "\$v=\$this->ContainerTags[$this->ContainerCount]->GetData(\$param);\n";
-		$ParamStr .=  "if(\$v)\nforeach(\$this->ContainerTags[$this->ContainerCount]->Data as \$this->TagIndex[$this->Depth] => \$this->TagValue[$this->Depth]){";
-		return $this->GetPHP($ParamStr);
+		$ParamStr .=  "if(\$this->containerTags[$this->containerCount]->Data)\nforeach(\$this->containerTags[$this->containerCount]->Data as \$this->tagIndex[$this->_depth] => \$this->tagValue[$this->_depth]){";
+		return $this->getPHP($ParamStr);
 	}
 	
 	/**
-	 * 取得窗口返回的数组
+	 * 取得容器返回的数组
 	 * @param $container
 	 * @param $param
 	 * @param $depth
 	 * @return unknown_type
 	 */
-	public function GetArrayPHP($container,$param,$depth)
+	public function getArrayPHP($container,$param,$depth)
 	{
 		$param = trim($param,'/');
-		$param = $this->ParseParam($param,$depth);
-		$ParamStr = "\$param=array();\n";
+		$param = $this->parseParam($param,$depth);
+		$this->data = "\$param=array();\n";
 		
 		foreach($param as $k => $v)
 		{
-			$ParamStr .= "\$param['$k']=$v;\n";
+			$this->data .= "\$param['$k']=$v;\n";
 		}
 		
-		$this->Data .= "\$this->ContainerTags[$this->ContainerCount] = new TagData();\n";
+		$this->data .= "\$this->containerTags[$this->containerCount] = new TagData();\n";
 		$container = explode('.',$container);
-		$this->Data .= "\$this->ContainerTags[$this->ContainerCount]->Method = '" . array_pop($container) . "';\n";
-		$this->Data .= "\$this->ContainerTags[$this->ContainerCount]->Container = '" . implode('.',$container) . "';\n";
+		$this->data .= "\$this->containerTags[$this->containerCount]->Method = '" . array_pop($container) . "';\n";
+		$this->data .= "\$this->containerTags[$this->containerCount]->Container = '" . implode('.',$container) . "';\n";
+		$this->data .=  "\$this->containerTags[$this->containerCount]->getData(\$param);\n";
 		
-		$ParamStr .=  "\$v=\$this->ContainerTags[$this->ContainerCount]->GetData(\$param);\n";
-		$ParamStr .=  "if(\$v){\n\$this->TagValue[$this->Depth] = \$this->ContainerTags[$this->ContainerCount]->Data;";
-		return $this->GetPHP($ParamStr);
+		$ParamStr .=  "if(\$this->containerTags[$this->containerCount]->Data){\n\$this->tagValue[$this->_depth] = \$this->containerTags[$this->containerCount]->Data;";
+		return $this->getPHP($ParamStr);
 	}
 	
-	public function RefreshTplCache()
+	/**
+	 * 取得变量的PHP形式
+	 * @param $name
+	 * @param $depth
+	 * @return unknown_type
+	 */
+	public function getRealVarible($name,$depth=0)
+	{
+		if (strpos($name,'.') !== false)
+		{
+			$NameArray = explode('.',$name);
+		}
+		else
+		{
+			$NameArray [0] = $name;
+		}
+		
+		if (in_array(strtolower($NameArray[0]),array('config','input','get','post','cookie','session','tplvar')))
+		{
+			return '$this->' . array_shift($NameArray) . (count($NameArray) > 0 ? "['" . implode("']['",$NameArray) . "']" : '');
+		}
+		else
+		{
+			if(preg_match('/^([\d]+)(.*)/',$NameArray[0],$array))
+			{
+				$depth = min($array[1],$depth);
+				$NameArray[0] = $array[2];
+			}
+			
+			if (count($NameArray) == 1 && in_array($NameArray[0],array('_','')))
+			{
+				return '$this->tagIndex[' . $depth . ']';
+			}
+			
+			return '$this->tagValue[' . $depth . ']' .  "['" . implode("']['",$NameArray) . "']";
+		}
+	}
+	
+	/**
+	 * 取得函数的PHP形式
+	 */
+	public function getRealFunction($name)
+	{
+		if (strpos($name, '.'))
+		{
+			$names = explode('.', $name);
+			$name = array_pop($names);
+			$names = implode('/',$names);
+			
+			$this->data .= "load_helper('$names');\n";
+			
+			return $name;
+		}
+		elseif (strpos($name, '::'))
+		{
+			$names = substr($name, 0, strpos($name, '::'));
+			
+			$this->data .= "load_class('$names', false);\n";
+			
+			return $name;
+		}
+		elseif (strpos($name,'->'))
+		{
+			$names = explode('->', $name,2);
+			$name = end($names);
+			$class = $names[0];
+			
+			$this->data .= "if (!(\$temp = load_container('$class'))){
+	\$$class = load_controller('$class');
+}";
+			return '$' . $class . '->' . $name;
+		}
+		return $name;
+	}
+	
+	/**
+	 * 取出执行完成后的内容
+	 * @param $view
+	 * @return unknown_type
+	 */
+	public function getData($view)
+	{
+		$this->viewPath = $view;
+		$this->viewName = end(explode('/',$view));
+		
+		if ($this->needRefresh($view))
+		{
+			$this->refresh();
+		}
+		if (!$this->isIncluded && !$this->isUserControl)
+		{
+			if ($this->config['gzip'])
+			{
+				ob_start('ob_gzhandler');
+			}
+			else
+			{
+				ob_start();
+			}
+		}
+		
+		include $this->dataFile;
+		include $this->cacheFile;
+		
+		if (!$this->isIncluded && !$this->isUserControl)
+		{
+			$content = ob_get_contents();
+			ob_end_clean();
+		}
+		
+		return $content;
+	}
+	
+	/**
+	 * 更新模板缓存
+	 * @return unknown_type
+	 */
+	public function refreshTplCache()
 	{
 		$now = 0;
 		
-		$source = file_get_contents($this->SourceFile);
+		$source = file_get_contents($this->sourceFile);
 		$dest = '';
-		foreach ($this->Tags as $tag)
+		foreach ($this->tags as $tag)
 		{
 			$dest .= substr($source,$now,$tag['Start'] - $now);
 			$dest .= $tag['php'];
@@ -1078,18 +1038,18 @@ class Compile
 		}
 		$dest .= substr($source,$now);
 		
-		mk_dir(dirname($this->CacheFile));
-		file_put_contents($this->CacheFile,$dest);
-		mk_dir(dirname($this->DataFile));
-		file_put_contents($this->DataFile,$this->GetPHP($this->Data));
-		mk_dir(dirname($this->TimeFile));
-		file_put_contents($this->TimeFile,time());
+		mk_dir(dirname($this->cacheFile));
+		file_put_contents($this->cacheFile,$dest);
+		mk_dir(dirname($this->dataFile));
+		file_put_contents($this->dataFile,$this->getPHP($this->data . $this->delayData));
+		mk_dir(dirname($this->timeFile));
+		file_put_contents($this->timeFile,time());
 	}
 }
 
 class TagData
 {
-	public $Data;
+	public $data;
 	public $Container;
 	public $Method;
 	
@@ -1098,47 +1058,41 @@ class TagData
 		$Expire = 0;
 	}
 	
-	public function GetData($param)
+	public function getData($param)
 	{
 		ksort($param);
 		$gn = to_guid_string($param);
 		$this->Expire = $param['expire'];
-		
-		$cnt = load_data('datas',$this->Container . '.' . $this->Method,$gn);
-		if($cnt)
+		if ($this->Expire == -1)
 		{
-			$LastGen = substr($cnt,0,12);
-			
-			if ($this->Expire > 0 && time() - $LastGen < $this->Expire)
+			$cnt = load_data('datas',$this->Container . '.' . $this->Method,$gn);
+			if($cnt)
 			{
 				$this->Data = unserialize(substr($cnt,12));
 				return $this->Data;
 			}
 		}
-		$container = load_container($this->Container);
+		elseif ($this->Expire > 0)
+		{
+			$cnt = load_data('datas',$this->Container . '.' . $this->Method,$gn);
+			if($cnt)
+			{
+				$LastGen = substr($cnt,0,12);
+				
+				if (time() - $LastGen < $this->Expire)
+				{
+					$this->Data = unserialize(substr($cnt,12));
+					return $this->Data;
+				}
+			}
+		}
+		$container = &load_container($this->Container);
 		$method = $this->Method;
 		$data = $container->$method($param);
 		
 		$this->Data = $data;
-		save_data('datas',$this->Container . '.' . $this->Method,$gn,sprintf('%012d%s',time(),serialize($data)));
+		if ($this->Expire != 0)save_data('datas',$this->Container . '.' . $this->Method,$gn,sprintf('%012d%s',time(),serialize($data)));
 		
 		return $this->Data;
 	}
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

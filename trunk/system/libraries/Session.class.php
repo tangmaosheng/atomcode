@@ -27,12 +27,13 @@ define("HTTP_SESSION_CONTINUED",	2);
  * @version   $Id$
  *--------------------
  */
-class Session extends ac_base
+class Session
 {//类定义开始
 
 	public function __construct()
 	{
-		parent::__construct();
+		global $var;
+		$this->config = $var->config;
 	}
 	/**
 	 *

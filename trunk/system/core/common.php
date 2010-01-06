@@ -77,19 +77,20 @@ function &load_class($class, $instantiate = TRUE,$path = 'libraries')
 	// Does the class exist?  If so, we're done...
 	if (isset($objects[$path . '/' . $class]))
 	{
+		if ($instantiate && !is_object($objects[$path . '/' . $class]))$objects[$path . '/' . $class] = & new $class();
 		return $objects[$path . '/' . $class];
 	}
 	// If the requested class does not exist in the application/libraries
 	// folder we'll load the native class from the system/libraries folder.	
 	if (file_exists(APP_PATH.'/' . $path . '/'.$class.'.class.php'))
 	{
-		require(APP_PATH.'/' . $path . '/'.$class.'.class.php');
+		require_cache(APP_PATH.'/' . $path . '/'.$class.'.class.php');
 	}
 	else
 	{
 		if (file_exists(SYS_PATH.'/' . $path . '/'.$class.'.class.php'))
 		{
-			require(SYS_PATH.'/' . $path . '/'.$class.'.class.php');
+			require_cache(SYS_PATH.'/' . $path . '/'.$class.'.class.php');
 		}
 		else
 		{
@@ -111,10 +112,9 @@ function &load_class($class, $instantiate = TRUE,$path = 'libraries')
  * Loads container from user's application folder
  * 
  * @param $container
- * @param $instantiate
  * @return unknown_type
  */
-function &load_container($container, $instantiate = TRUE)
+function &load_container($container)
 {
 	static $objects = array();
 
@@ -124,91 +124,103 @@ function &load_container($container, $instantiate = TRUE)
 		return $objects[$container];
 	}
 	
-	$real_container = end(explode('/',$container));
+	$real_container = end(explode('/', $container));
 	
-	if (file_exists(APP_PATH.'/containers/'.$container.'.php'))
+	//find containers in application path or system path.
+	if (file_exists(APP_PATH . '/containers/' . $container . '.php'))
 	{
-		require(APP_PATH.'/containers/'.$container.'.php');
+		require_cache(APP_PATH . '/containers/' . $container . '.php');
 	}
 	else
 	{
-		return false;
+		if (file_exists(SYS_PATH.'/containers/' . $container . '.php'))
+		{
+			require_cache(SYS_PATH.'/containers/' . $container . '.php');
+		}
+		else
+		{
+			return false;
+		}
 	}
 	
-	if (!class_exists($real_container))return false;
-	
-	if ($instantiate == FALSE)
-	{
-		$objects[$container] = TRUE;
-		return $objects[$container];
-	}
+	if (!class_exists($real_container)) return false;
 	
 	$objects[$container] =& new $real_container();
 	return $objects[$container];
 }
-/**
- * load_container的简化版
- * @param $container
- * @return unknown_type
- */
-function &C($container)
-{
-	return load_container($container);
-}
+
 /**
  * Loads model from user's application folder
  * 
  * @param $model
- * @param $instantiate 初始化
  * @return unknown_type
  */
-function &load_model($model, $instantiate = TRUE)
+function &load_model($model)
 {
 	global $var;
 	static $objects = array();
-
+	
+	$_model = $var->config['MODEL_CLASS_PREFIX'] . $model . $var->config['MODEL_CLASS_SUFFIX'];
 	// Does the class exist?  If so, we're done...
 	if (isset($objects[$model]))
 	{
 		return $objects[$model];
 	}
 	
-	$model = $var->config['MODEL_CLASS_PREFIX'] . $model . $var->config['MODEL_CLASS_SUFFIX'];
-	
-	if (file_exists(APP_PATH.'/models/' . $model . '.php'))
+	if (file_exists(APP_PATH . '/models/' . $model . '.php'))
 	{
-		require(APP_PATH.'/models/' . $model . '.php');
+		require_cache(APP_PATH . '/models/' . $model . '.php');
 	}
 	else
 	{
 		return false;
 	}
 	
-	if ($instantiate == FALSE)
-	{
-		$objects[$model] = TRUE;
-		return $objects[$model];
-	}
-	
-	$objects[$model] =& new $model();
+	$objects[$model] = & new $_model();
 	return $objects[$model];
-}
-
-/**
- * Load_model 的简化版
- * @param $model
- * @return unknown_type
- */
-function &M($model)
-{
-	return load_model($model);
 }
 
 /**
  * Loads model from user's application folder
  * 
  * @param $model
- * @param $instantiate 初始化
+ * @return unknown_type
+ */
+function &load_controller($controller,$controller_dir='')
+{
+	global $var;
+	static $objects = array();
+	
+	if ($controller_dir)
+	{
+		$controller_dir = str_replace('.','/',$controller_dir);
+		
+		$controller_dir = trim($controller_dir,'/') . '/';
+	}
+	
+	// Does the class exist?  If so, we're done...
+	if (isset($objects[$controller]))
+	{
+		return $objects[$controller];
+	}
+	
+	if (file_exists(APP_PATH . '/controllers/' . $controller_dir . $controller . '.php'))
+	{
+		require_cache(APP_PATH . '/controllers/' . $controller_dir . $controller . '.php');
+	}
+	else
+	{
+		return false;
+	}
+	
+	$objects[$controller] = & new $controller();
+	return $objects[$controller];
+}
+
+/**
+ * Loads model from user's application folder
+ * 
+ * @param $model
  * @return unknown_type
  */
 function load_helper($helper)
@@ -219,20 +231,60 @@ function load_helper($helper)
 	// Does the class exist?  If so, we're done...
 	if (isset($objects[$helper]))
 	{
-		return true;
+		return $objects[$helper];
+	}
+	//find helper
+	if (file_exists(APP_PATH . '/helpers/' . $helper . '.php'))
+	{
+		require_cache(APP_PATH . '/helpers/' . $helper . '.php');
+		return $objects[$helper]=true;
+	}
+	elseif (file_exists(SYS_PATH . '/helpers/' . $helper . '.php'))
+	{
+		require_cache(SYS_PATH . '/helpers/' . $helper . '.php');
+		return $objects[$helper]=true;
 	}
 	
-	if (file_exists(APP_PATH.'/helpers/' . $helper . '.php'))
-	{
-		require(APP_PATH.'/helpers/' . $helper . '.php');
-		return $objects[$helper]=true;
-	}
-	elseif (file_exists(SYS_PATH.'/helpers/' . $helper . '.php'))
-	{
-		require(SYS_PATH.'/helpers/' . $helper . '.php');
-		return $objects[$helper]=true;
-	}
 	return $objects[$helper]=false;
+}
+
+/**
+ * load factories from system folder.It's recommend to use 'factory' mode to do 
+ * complex functions.
+ * the factory must has static method getInstance
+ * @param $factory
+ * @return object
+ */
+function &load_factory($factory)
+{
+	load_class($factory,false,'factory/' . $factory);
+	eval('$s='.$factory . " :: getInstance();");
+	return $s;
+}
+
+/**
+ * load config from user's folder
+ * @param $config
+ * @return unknown_type
+ */
+function load_config($config_name)
+{
+	static $objects = array();
+	global $config;
+	// Does the class exist?  If so, we're done...
+	if (isset($objects[$config_name]))
+	{
+		return $objects[$config_name];
+	}
+	
+	if (file_exists(APP_PATH . '/config/' . $config_name . '.php'))
+	{
+		require(APP_PATH . '/config/' . $config_name . '.php');
+	}
+	else
+	{
+		return false;
+	}
 }
 
 /**
@@ -243,9 +295,10 @@ function load_helper($helper)
 */
 function &get_config()
 {
-	static $main_conf;
+	global $config;
+	static $loaded = false;
 
-	if ( ! isset($main_conf))
+	if ( ! $loaded)
 	{
 		if ( ! file_exists(APP_PATH . '/config/config.php'))
 		{
@@ -258,10 +311,9 @@ function &get_config()
 		{
 			exit('Your config file does not appear to be formatted correctly.');
 		}
-
-		$main_conf =& $config;
+		$loaded = true;
 	}
-	return $main_conf;
+	return $config;
 }
 
 /**
@@ -294,58 +346,11 @@ function log_message($level = 'error', $message = '', $php_error = FALSE)
 * @return	void
 */
 function _error_handler($severity, $message, $filepath, $line)
-{	
-	 // We don't bother with "strict" notices since they will fill up
-	 // the log file with information that isn't normally very
-	 // helpful.  For example, if you are running PHP 5 and you
-	 // use version 4 style class functions (without prefixes
-	 // like "public", "private", etc.) you'll get notices telling
-	 // you that these have been deprecated.
-	 
+{
 	if ($severity == E_STRICT)
 	{
 		return;
 	}
-
-	$error =& load_class('AC_Exception');
-
-	// Should we display the error?
-	// We'll get the current error_reporting level and add its bits
-	// with the severity bits to find out.
-	
-	if (($severity & error_reporting()) == $severity)
-	{
-		$error->show_php_error($severity, $message, $filepath, $line);
-	}
-	
-	// Should we log the error?  No?  We're done...
-	$config =& get_config();
-	if ($config['log'] == 0)
-	{
-		return;
-	}
-
-	$error->log_exception($severity, $message, $filepath, $line);
-}
-
-/**
- * 
- * @param Exception $exception
- * @return BOOL
- */
-function _exception_handler(Exception $exception)
-{	
-	 // We don't bother with "strict" notices since they will fill up
-	 // the log file with information that isn't normally very
-	 // helpful.  For example, if you are running PHP 5 and you
-	 // use version 4 style class functions (without prefixes
-	 // like "public", "private", etc.) you'll get notices telling
-	 // you that these have been deprecated.
-	 
-	$severity	= 'Exception';
-	$message	= $exception->getMessage(); 
-	$filepath	= $exception->getFile() . "\n" . $exception->getTraceAsString();
-	$line		= $exception->getLine();
 
 	$error =& load_class('AC_Exception');
 
@@ -423,11 +428,8 @@ function to_guid_string($mix)
 }
 
 /**
- *
  * 优化的require_once
- *
  * @param string $filename 文件名
- *
  * @return boolen
  *
  */
@@ -451,7 +453,10 @@ function require_cache($filename)
 	return $_import[$filename];
 }
 
-// 区分大小写的文件存在判断
+/**
+ * 区分大小写的文件存在判断
+ * 
+ */
 function file_exists_case($filename) 
 {
 	if (!defined('IS_WIN')) define('IS_WIN',strstr(PHP_OS, 'WIN') ? 1 : 0 );
@@ -480,13 +485,61 @@ function file_exists_case($filename)
  *
  * @return boolean
  */
-function is_instance_of($object, $className)
+function is_instance_of($object, $class_name)
 {
 	if (!is_object($object) && !is_string($object)) 
 	{
 		return false;
 	}
-	return $object instanceof $className;
+	return $object instanceof $class_name;
+}
+
+/**
+ * 取得类对象的实例
+ * @param $className 类名
+ * @param $method 方法名,如果为空仅调用构造函数
+ * @param $args
+ * @return unknown_type
+ */
+function get_instance_of($class_name,$method='',$args=array())
+{
+    static $_instance = array();
+    if(empty($args)) 
+    {
+        $identify   =   $class_name.$method;
+    }
+    else
+    {
+        $identify   =   $class_name.$method.to_guid_string($args);
+    }
+    
+    if (!isset($_instance[$identify])) 
+    {
+        if(class_exists($class_name))
+        {
+            $o = new $class_name();
+            if(method_exists($o,$method))
+            {
+                if(!empty($args)) 
+                {
+                    $_instance[$identify] = call_user_func_array(array(&$o, $method), $args);
+                }
+                else 
+                {
+                    $_instance[$identify] = $o->$method();
+                }
+            }
+            else
+            {
+                $_instance[$identify] = $o;
+            }
+        }
+        else
+        {
+            stop('类不存在');
+        }
+    }
+    return $_instance[$identify];
 }
 
 /**
@@ -497,60 +550,60 @@ function is_instance_of($object, $className)
  * @param string $fContents 需要转换的字符串
  * @return string
  */
-function auto_charset($fContents,$from='',$to='')
+function auto_charset($contents,$from='',$to='')
 {
 	if(empty($from)) $from = 'utf-8';
 	if(empty($to))  $to =   'utf-8';
 	$from   =  strtoupper($from)=='UTF8'? 'utf-8':$from;
 	$to	   =  strtoupper($to)=='UTF8'? 'utf-8':$to;
-	if( strtoupper($from) === strtoupper($to) || empty($fContents) || (is_scalar($fContents) && !is_string($fContents)))
+	if( strtoupper($from) === strtoupper($to) || empty($contents) || (is_scalar($contents) && !is_string($contents)))
 	{
 		//如果编码相同或者非字符串标量则不转换
-		return $fContents;
+		return $contents;
 	}
 	
-	if(is_string($fContents))
+	if(is_string($contents))
 	{
 		if(function_exists('mb_convert_encoding'))
 		{
-			return mb_convert_encoding ($fContents, $to, $from);
+			return mb_convert_encoding ($contents, $to, $from);
 		}
 		elseif(function_exists('iconv'))
 		{
-			return iconv($from,$to,$fContents);
+			return iconv($from,$to,$contents);
 		}
 		else
 		{
 			throw new Exception('没有支持编码转换的扩展!');
-			return $fContents;
+			return $contents;
 		}
 	}
-	elseif(is_array($fContents))
+	elseif(is_array($contents))
 	{
-		foreach ( $fContents as $key => $val ) 
+		foreach ( $contents as $key => $val ) 
 		{
 			$_key =	 auto_charset($key,$from,$to);
-			$fContents[$_key] = auto_charset($val,$from,$to);
+			$contents[$_key] = auto_charset($val,$from,$to);
 			if($key != $_key ) 
 			{
-				unset($fContents[$key]);
+				unset($contents[$key]);
 			}
 		}
-		return $fContents;
+		return $contents;
 	}
-	elseif(is_object($fContents)) 
+	elseif(is_object($contents)) 
 	{
-		$vars = get_object_vars($fContents);
+		$vars = get_object_vars($contents);
 		foreach($vars as $key=>$val) 
 		{
-			$fContents->$key = auto_charset($val,$from,$to);
+			$contents->$key = auto_charset($val,$from,$to);
 		}
-		return $fContents;
+		return $contents;
 	}
 	else
 	{
 		//halt('系统不支持对'.gettype($fContents).'类型的编码转换！');
-		return $fContents;
+		return $contents;
 	}
 }
 /**
@@ -564,7 +617,7 @@ function auto_charset($fContents,$from='',$to='')
 function S($name,$value='',$expire='',$type='')
 {
     static $_cache = array();
-    load_class('Cache',true);
+    load_class('cache',false,'factory/cache');
     //取得缓存对象实例
     $cache  = Cache::getInstance($type);
 
@@ -612,11 +665,6 @@ function mk_dir($dir, $mode = 0755)
   return @mkdir($dir,$mode);
 }
 
-function show_choices($message,$btn_txt = '返回',$btn_url = 'javascript:history.go(-1);')
-{
-	
-}
-
 /**
  * 程序停止
  * @param $message
@@ -657,22 +705,43 @@ function isAjax()
 	return false;
 }
 
-function load_data($base,$nextUrl,$fn)
+/**
+ * 加载文件
+ * @param $base
+ * @param $nextUrl
+ * @param $fn
+ * @return unknown_type
+ */
+function load_data($base,$next_url,$fn)
 {
-	$path = APP_PATH . '/cache/' . $base . '/' . str_replace('.','/',$nextUrl) . '/' . $fn;
-	if (!file_exists($path))return false;
+	$path = APP_PATH . '/cache/' . $base . '/' . str_replace('.','/',$next_url) . '/' . $fn;
+	if (!is_file($path))return false;
 	return file_get_contents($path);
 }
 
-function save_data($base, $nextUrl, $fn, $content)
+/**
+ * 在APP_PATH下保存缓存,将会创建文件,这些文件不会无限增多.
+ * 清理时机:当修改模板时可以清理
+ * @param $base 子目录
+ * @param $nextUrl 下级目录
+ * @param $fn 文件名
+ * @param $content 内容
+ * @return bool
+ */
+function save_data($base, $next_url, $fn, $content)
 {
-	$path = APP_PATH . '/cache/' . $base . '/' . str_replace('.','/',$nextUrl);
+	$path = APP_PATH . '/cache/' . $base . '/' . str_replace('.','/',$next_url);
 	mk_dir($path);
 	
 	$path .= '/' . $fn;
 	return file_put_contents($path,$content);
 }
 
+/**
+ * 清理SVN创建的目录
+ * @param $path1
+ * @return unknown_type
+ */
 function clean_svn($path1)
 {
 	global $count;
@@ -693,6 +762,11 @@ function clean_svn($path1)
 	}
 }
 
+/**
+ * 递归删除一个目录
+ * @param $path
+ * @return unknown_type
+ */
 function del_dir($path)
 {
 	global $count;
@@ -719,16 +793,14 @@ function del_dir($path)
 	echo '<font color="red">delete ' . $path . '</font>...ok!<br>';
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+/**
+ * 从开始到目前的执行时间
+ * @return unknown_type
+ */
+function exec_time()
+{
+	global $SysStartTime;
+	$Time = microtime(true);
+	if (!is_float($Time))$Time = array_sum(explode(' ',$Time));
+	return $Time - $SysStartTime;
+}
