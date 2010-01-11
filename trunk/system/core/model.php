@@ -50,7 +50,7 @@ abstract class Model
 	 * @param steing $value 值
 	 * @param int    $modified  = 1 : 为添加修饰符
 	 */
-	function addData($var,$value = null,$modified = 1)
+	function set($var,$value = null,$modified = 1)
 	{
 		if (is_array($var))
         {
@@ -110,7 +110,7 @@ abstract class Model
 	 * @param string $table
 	 * @return boolean
 	 */
-	function dataInsert($table)
+	function insert($table)
 	{
 		//构建SQL语句
 		$ins_data_num = count($this->ins_data);
@@ -321,7 +321,7 @@ abstract class Model
 	 *
 	 * @param int $limit
 	 */
-	function setLimit($limit)
+	function limit($limit)
 	{
 		if ($limit > 0) $this->limit = $limit;
 	}
@@ -331,7 +331,7 @@ abstract class Model
 	 *
 	 * @param string $order
 	 */
-	function setOrder($order = 'ID desc')
+	function orderBy($order = 'ID desc')
 	{
 		$orders = explode(' ',$order);
 		$this->order[$orders[0]] = $order; 
@@ -344,7 +344,7 @@ abstract class Model
 	 *
 	 * @param int $page
 	 */
-	function setPage($page)
+	function page($page)
 	{
 		$this->page = $page;
 	}
@@ -356,7 +356,7 @@ abstract class Model
 	 * @param string $where 查询条件
 	 * @return boolean
 	 */
-	function dataUpdate($table)
+	function update($table)
 	{
 		try
 		{
@@ -433,7 +433,7 @@ abstract class Model
 	 * @param string $method
 	 * @return boolean
 	 */
-	function dataDel($table)
+	function delete($table)
 	{
 		$where = $this->conditions ? ' where ' . $this->conditions : '';
 
@@ -474,7 +474,7 @@ abstract class Model
 	 * @param string $where  查询条件
 	 * @return int   传回记录条数
 	 */
-	function dataNum($table)
+	function count($table)
 	{
 		$this->from($table);
 
@@ -495,7 +495,7 @@ abstract class Model
 	 * @param string $sql  自定义sql语句,当$sql存在是,前面参数无效
 	 * @return array      得到一条记录
 	 */
-	function dataInfo($table,$select = '*')
+	function getOne($table,$select = '*')
 	{
 		$this->from($table);
 
@@ -530,7 +530,7 @@ abstract class Model
 	 * @param string $select  查询字段
 	 * @return array   返回数据记录列表
 	 */
-	function dataList($table,$select = '*')
+	function select($table,$select = '*')
 	{
 		$this->from($table);
 
@@ -576,7 +576,7 @@ abstract class Model
 	 * @param int $type 返回类型 1=多条记录，2=单条记录
 	 * @return array
 	 */
-	function customQuery($sql,$type = 1)
+	function query($sql,$type = 1)
 	{
 		$this->query = $sql;
 

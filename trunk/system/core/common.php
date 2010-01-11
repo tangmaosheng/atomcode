@@ -799,8 +799,8 @@ function del_dir($path)
  */
 function exec_time()
 {
-	global $SysStartTime;
+	global $system_start_time;
 	$Time = microtime(true);
 	if (!is_float($Time))$Time = array_sum(explode(' ',$Time));
-	return $Time - $SysStartTime;
+	return $Time - $system_start_time;
 }

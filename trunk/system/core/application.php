@@ -48,10 +48,10 @@ class Application
 	 */
 	public function init()
 	{
-		global $URI;
+		global $uri;
 
-		$c = $URI->getController();
-		$a = $URI->getMethod();
+		$c = $uri->getController();
+		$a = $uri->getMethod();
 		$this->controller = empty($c) ? $this->defaultController : $c;
 		$this->method = empty($a) ? $this->defaultMethod : $a;
 	}

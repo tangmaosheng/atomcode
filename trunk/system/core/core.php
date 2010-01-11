@@ -24,8 +24,8 @@ if(version_compare(PHP_VERSION,'5.0.0','<') )
 	exit('Your PHP version is too old,please upgrade to 5.0.0 or newer!');
 }
 
-$SysStartTime = microtime(true);
-if (!is_float($SysStartTime))$SysStartTime = array_sum(explode(' ',$SysStartTime));
+$system_start_time = microtime(true);
+if (!is_float($system_start_time))$system_start_time = array_sum(explode(' ',$system_start_time));
 
 #常量定义
 define('SYS_PATH', str_replace('\\','/',substr(__FILE__,0,-14) ) );
@@ -41,9 +41,9 @@ $var->config = & get_config();
 #时区设置
 date_default_timezone_set($var->config['time_zone']);
 
-$URI = load_factory('uri');
+$uri = load_factory('uri');
 
-$var->get = $URI->getGet();
+$var->get = $uri->getGet();
 $var->input = $var->get;
 $var->request_method = strtolower($_SERVER['REQUEST_METHOD']);
 
