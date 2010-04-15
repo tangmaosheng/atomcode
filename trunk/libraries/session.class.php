@@ -45,6 +45,7 @@ class Session
 	
 	public static function clear()
 	{
-		
+		session_destroy();
+		unset($_SESSION);
 	}
 }
