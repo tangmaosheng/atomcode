@@ -227,6 +227,36 @@ class Compile
 		
 		$this->sourceCode = $this->parseInclude($this->sourceFile);
 	}
+	
+	/**
+	 * Get the tags of the source file
+	 * @todo implement this funciton 
+	 * @return unknown_type
+	 */
+	private function getTags()
+	{
+		
+	}
+	
+	/**
+	 * parse the tags into php contents and optimalize the programme logic
+	 * @todo implement this function
+	 * @return unknown_type
+	 */
+	private function parseTags()
+	{
+		
+	}
+	
+	/**
+	 * write the html and php contents into cache files
+	 * @todo implement
+	 * @return unknown_type
+	 */
+	private function refreshTplCache()
+	{
+		
+	}
 }
 
 /**
