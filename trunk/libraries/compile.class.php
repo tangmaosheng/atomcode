@@ -8,7 +8,7 @@
  * @link http://www.cncms.com.cn
  * @author Eachcan <eachcan@cncms.com>
  * @license http://www.apache.org/licenses/LICENSE-2.0
- * @version 1.0 2009-10-11
+ * @version 1.0 2010-05-28
  * @filesource 
  */
 if (defined('COMPILE')) return;
@@ -16,7 +16,7 @@ if (defined('COMPILE')) return;
 define('COMPILE', 1);
 # Maxium depth of include file, All the include tags which exceed the limit will be ignored
 # If you need more deeper, change this value.
-define('COMPILE_INCLUDE_DEPTH', 3);
+define('COMPILE_INCLUDE_DEPTH', 5);
 # Whether the compiler strip the space characters to speed up
 define('COMPILE_STRIP_SPACE', 1);
 
@@ -29,288 +29,442 @@ define('COMPILE_STRIP_SPACE', 1);
  * Pre-process:	deal with the include tags and user controls, write contents in all the 
  * 				related files into one file. Strip the line break, continuous white characters.
  * 				This step check if the included files are existed.
- * Read-tags:	scan the whole file to record all the tags position and other information.
+ * Replace tags:	scan the whole file to record all the tags position and other information.
  *				This step check syntax error.
- * Generate:	Replace the template tags with PHP segments, and write the contents into a 
+ * Cleanup and save:	Replace the template tags with PHP segments, and write the contents into a 
  * 				cached file
  */
 class Compile 
 {
-	private $tags;
-	private $pairTags;
-	private $containerTags;
-	private $containerCount;
-	private $_depth;
-	public  $lineNum;
+	public $sourceFile;
+	public $cacheFile;
+	public $sourceCode;
+	private $destCode;
 	
-	private $tplvar;
 	public $config;
-	public $input;
-	public $get;
-	public $post;
-	public $cookie;
-	public $session;
-	
-	private $viewName;
-	private $viewPath;
+	private $fromFile;
 	private $viewExt;
 	
-	private $sourceFile;
-	private $cacheFile;
-	private $timeFile;
+	private $tags;
 	
-	private $data;
-	private $delayData;
-	
-	private $tagValue;
-	private $tagIndex;
-	
-	private $sourceCode;
+	private $useDepth=0;
 
 	public function __construct()
 	{
 		global $var;
 		$this->config	=& $var->config;
-		$this->input	=& $var->input;
-		$this->get		=& $var->get;
-		$this->post		=& $var->post;
-		$this->cookie	=& $var->cookie;
-		$this->session	=& $var->session;
 		
-		$this->viewExt	= empty($var->config['view_ext']) ? '.html' : $var->config['view_ext'];
-		
-		$this->lineNum	= 0;
-		$this->_depth	= 0;
-		$this->containerCount = -1;
-		$this->data		= '';
-		
-		$this->tagIndex = $this->tagValue = $this->tags = $this->pairTags = $this->containerTags
-		 = array();
-	}
-
-	/**
-	 * assign value to a template varible
-	 * @param $name
-	 * @param $value
-	 * @return 
-	 */
-	public function assign($name,$value)
-	{
-		$this->tagValue[0][$name] = $value;
+		$this->viewExt	= empty($this->config['view_ext']) ? '.html' : $this->config['view_ext'];
 	}
 	
 	/**
-	 * erase the point variable
-	 * @param $name
-	 * @return
+	 * load content from source file and parse to PHP code
+	 * @return null
 	 */
-	public function delete($name)
+	public function parseFile()
 	{
-		unset($this->tagValue[0][$name]);
-	}
-	
-	/**
-	 * send content to browser
-	 * @param $view
-	 * @return
-	 */
-	public function show($view)
-	{
-		echo $this->getData($view);
-	}
-	
-	/**
-	 * Get html code from cache or dynamically generated code
-	 * @param $view
-	 * @return HTML
-	 */
-	public function getData($view)
-	{
-		$this->viewPath = $view;
-		$this->viewName = end(explode('/',$view));
-		
-		if ($this->needRefresh($view))
+		if (empty($this->sourceFile))
 		{
-			$this->refresh();
+			exit('View file have not been given.');
 		}
 		
-		if ($this->config['gzip'])
+		if (!file_exists($this->sourceFile))
 		{
-			ob_start('ob_gzhandler');
+			exit('Missing view file, can not compile it:' . $this->sourceFile);
+		}
+		
+		$this->sourceCode = file_get_contents($this->sourceFile);
+		
+		if ($this->sourceCode === false)
+		{
+			exit('You may have no privilege to read this view:' . $this->sourceFile);
+		}
+		
+		$this->parse();
+		$this->save();
+	}
+	
+	/**
+	 * parse sorce code into PHP and HTML code
+	 * if you want get the code instead of saving it to file, get contents from Compile::destCode
+	 * 
+	 * @return php + html
+	 */
+	public function parse()
+	{
+		$this->destCode = $this->sourceCode;
+		
+		if ($this->destCode == '')
+		{
+			return;
+		}
+		
+		if (empty($this->sourceFile))
+		{
+			$this->sourceFile = APP_PATH . '/views/';
+		}
+		# pre-process
+		$this->destCode = $this->preProcess($this->destCode, $this->sourceFile);
+		# scan tags and replace them with php code
+		$this->parseContents($this->destCode);
+		# clean up the destination code
+		#$this->cleanUp();
+	}
+	
+	/**
+	 * process `include` and `use` tags
+	 * 
+	 * @return unknown_type
+	 */
+	private function preProcess($code, $reference, $depth=0)
+	{
+		$depth ++;
+		if (COMPILE_INCLUDE_DEPTH && $depth > COMPILE_INCLUDE_DEPTH)
+		{
+			return $code;
+		}
+		
+		$code = preg_replace('/\{include\s+([^\s\}]+)\s*\/?\}/ies', '$this->parseInclude($depth, $reference, "$1")', $code);
+		$code = preg_replace('/\{use((.\w+){2,})\s+([^\}]+)\}/ies', '$this->parseUse($depth, "$1", \'$3\')', $code);
+
+		return $code;
+	}
+	
+	/**
+	 * Deal with the `include` tag
+	 * @param $depth include depth
+	 * @param $reference current file path
+	 * @param $file included file path
+	 * @return filename
+	 */
+	private function parseInclude($depth, $reference, $file)
+	{
+		if ($file{0} == '/')
+		{
+			$path = APP_PATH . '/views' . $file . $this->viewExt;
 		}
 		else
 		{
-			ob_start();
+			$path = realpath(dirname($reference) . '/' . $file . $this->viewExt);
 		}
 		
-		include $this->cacheFile;
+		if (strpos(str_replace('\\', '/', $path), APP_PATH . '/views/') !== 0)
+		{
+			exit('It\'s not allowed to include foreign file, or this file does not exist:' . $file . $this->viewExt);
+		}
 		
-		$content = ob_get_contents();
-		ob_end_clean();
+		if (!file_exists($path))
+		{
+			exit('Included file is not existed : ' . $path . ', Referenced by : ' . $reference);
+		}
 		
-		return $content;
+		$code = file_get_contents($path);
+		if ($code === false)
+		{
+			exit('You may have no privilege to read this view:' . $path);
+		}
+		
+		return $this->preProcess($code, $path, $depth);
+	}
+	
+	/**
+	 * Deal with the `use` tags
+	 * @param $depth
+	 * @param $user_control
+	 * @param $param
+	 * @return unknown_type
+	 */
+	private function parseUse($depth, $user_control, $param)
+	{
+		
+		$param = stripslashes($param);
+		$user_control = trim($user_control, '. ');
+		$param = trim($param, ' /');
+		
+		$path = APP_PATH . '/uses/' . str_replace('.', '/', $user_control) . $this->viewExt;
+	
+		if (!file_exists($path))
+		{
+			exit('User Control file is not existed : ' . $path);
+		}
+		
+		$code = file_get_contents($path);
+		if ($code === false)
+		{
+			exit('You may have no privilege to read this user control:' . $path);
+		}
+		$code = "{use $param}" . $this->preProcess($code, APP_PATH . '/views/', $depth) . '{/use}';
+		
+		return $code;
+	}
+	
+	/**
+	 * save contents to a cache file
+	 * @return unknown_type
+	 */
+	private function save()
+	{
+		mk_dir(dirname($this->cacheFile));
+		touch($this->cacheFile);
+		$suc = file_put_contents($this->cacheFile, $this->destCode);
+		
+		if ($suc === false)
+		{
+			exit('Failed to write contents to cache file.');
+		}
+	}
+	
+	private function parseContents(&$code)
+	{
+		$this->getTags($code);
+		#$this->parseTags($code);
+	}
+	
+	private function getTags(&$code)
+	{
+		# match "helo\"helo", or single quote
+		$regx_dbquote = '"[^"\\\\\\$]*(?:\\\\.[^"\\\\\\$]*)*"';
+		$regx_sgquote = '\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\'';
+		$regx_quote = '(?:' . $regx_dbquote . '|' . $regx_sgquote . ')';
+		
+		$regx_noquote = '[^\\{\\}\\[\\]\\"\\\']*';
+		$regx_expr = '(?:' . $regx_noquote . '|' . $regx_quote . ')';
+		
+		$regx_tagname = '\w+(?:\\.\w+)*';
+		
+		$regx_start_tag = '\{(' . $regx_tagname . ')(\s+' . $regx_expr . '*)?\}';
+		$regx_end_tag = '\{/(\w*)\}';
+		$regx_tag = '~(?:' . $regx_start_tag . '|' . $regx_end_tag . ')~';
+
+		preg_match_all($regx_tag, $this->destCode, $this->tags, PREG_OFFSET_CAPTURE | PREG_SET_ORDER);
 	}
 
 	/**
-	 * Determine whether to make templet cache
-	 * @param $view
-	 * @return 
+	 * @todo not complete
+	 * @param $param
+	 * @param $depth
+	 * @return unknown_type
 	 */
-	private function needRefresh($view)
+	public function parseParam($param,$depth)
 	{
-		$this->sourceFile = APP_PATH . '/views/' . $view . $this->viewExt;
-		$this->cacheFile	= APP_PATH . '/cache/views/' . $view . '.php';
-		$this->timeFile	= APP_PATH . '/cache/datas/' . $view . '.t';
+		$param = trim($param);
+		if(empty($param))return array();
+		$before_equal = true;
+		$name = '';
+		$value= '';
+		$return = array();
 		
-		if (!file_exists($this->sourceFile) || !is_file($this->sourceFile))
-		{
-			$this->noFile();
-			return false;
-		}
+		$in_quote = false;
+		$Slashing = false;
+		$Bracket = 0;
+		$quote_char = '';
 		
-		if (!file_exists($this->cacheFile))
-		{
-			return true;
-		}
+		$var = '';
+		$func = '';
+		$InVar = false;
+		$Infunc = false;
+		$spliter = '';
 		
-		if ($this->config['COMPILE']['AUTO_CHECK'])
+		for($i = 0; $i < strlen($param); $i ++)
 		{
-			if (!file_exists($this->timeFile)) return true;
+			$char = $param{$i};
 			
-			$SourceTime = filemtime($this->sourceFile);
-			$DestTime	= file_get_contents($this->timeFile);
-			
-			if ($SourceTime > $DestTime)
+			if ($before_equal)
 			{
-				return true;
-			}
-		}
-		
-		return false;
-	}
-	
-	/**
-	 * Tigger FILE NOT EXISTS Error
-	 * @return 
-	 */
-	private function noFile()
-	{
-			header('HTTP/1.1 404 Not Found');exit;
-			trigger_error('Template File Not Exists!<br>Need File:' . APP_PATH . '/views/'
-			 . $this->viewPath . $this->viewExt . '<br />Line:' . $this->lineNum,E_ERROR);
-	}
-
-	/**
-	 * Refresh views.
-	 * 3 steps needed.
-	 * @return 
-	 */
-	private function refresh()
-	{
-		#step 1:
-		$this->preProcess();
-		#step 2:
-		$this->getTags();
-		$this->parseTags();
-		#step 3:
-		$this->refreshTplCache();
-	}
-	
-	/**
-	 * Read source code, scan the `include`, `use` tags.
-	 * Replace these tags with real content which are pre-processed.
-	 * @return 
-	 */
-	private function preProcess()
-	{
-		$this->sourceCode = file_get_contents($this->sourceFile);
-		
-		$this->sourceCode = $this->parseInclude($this->sourceFile);
-	}
-	
-	/**
-	 * Get the tags of the source file
-	 * @todo implement this funciton 
-	 * @return unknown_type
-	 */
-	private function getTags()
-	{
-		
-	}
-	
-	/**
-	 * parse the tags into php contents and optimalize the programme logic
-	 * @todo implement this function
-	 * @return unknown_type
-	 */
-	private function parseTags()
-	{
-		
-	}
-	
-	/**
-	 * write the html and php contents into cache files
-	 * @todo implement
-	 * @return unknown_type
-	 */
-	private function refreshTplCache()
-	{
-		
-	}
-}
-
-/**
- * Save temporary data for Compile Class.
- *
- */
-class TagData
-{
-	public $data;
-	public $Container;
-	public $Method;
-	
-	public function __construct()
-	{
-		$Expire = 0;
-	}
-	
-	public function getData($param)
-	{
-		ksort($param);
-		$gn = to_guid_string($param);
-		$this->Expire = $param['expire'];
-		if ($this->Expire == -1)
-		{
-			$cnt = load_data('datas',$this->Container . '.' . $this->Method,$gn);
-			if($cnt)
-			{
-				$this->Data = unserialize(substr($cnt,12));
-				return $this->Data;
-			}
-		}
-		elseif ($this->Expire > 0)
-		{
-			$cnt = load_data('datas',$this->Container . '.' . $this->Method,$gn);
-			if($cnt)
-			{
-				$LastGen = substr($cnt,0,12);
-				
-				if (time() - $LastGen < $this->Expire)
+				if (preg_match('/[\w\s]/',$char))
 				{
-					$this->Data = unserialize(substr($cnt,12));
-					return $this->Data;
+					$name .= $char;
+				}
+				elseif ($char == '=')
+				{
+					$before_equal = false;
+					$name = trim($name);
+					if (preg_match('/\s/',$name))
+					{
+						trigger_error($param . '属性名包含空白字符!',E_USER_ERROR);exit;
+					}
+				}
+				else
+				#no special chars in attribute name
+				{
+					trigger_error($param . '属性名包含非法字符',E_USER_ERROR);exit;
 				}
 			}
+			else
+			#Bebore equal
+			{
+				if ($in_quote)
+				{
+					if ($Slashing)
+					{
+						$Slashing = false;
+					}
+					else
+					{
+						if ($char == '\\')
+						{
+							$Slashing = true;
+						}
+						elseif ($char == $quote_char)
+						{
+							$in_quote = false;
+						}
+					}
+					$value .= $char;
+				}
+				else
+				#out of quote
+				{
+					if ($InVar)
+					{
+						if (preg_match('/[\w]/',$char))
+						{
+							if (!empty($spliter))
+							{
+								$var .= $spliter;
+								$spliter = '';
+							}
+							$var .= $char;
+						}
+						elseif ($char == '.')
+						{
+							$spliter = '.';
+						}
+						else
+						{
+							$InVar = false;
+							
+							if (empty($var))
+							{
+								trigger_error($param . '变量格式错误.',E_USER_ERROR);exit;
+							}
+							$value .= $this->getRealVarible($var,$depth);
+							$value .= $spliter;
+							
+							if ($char == ',')
+							{
+								if ($Bracket < 1){
+									$before_equal = true;
+									$return[$name] = $value;
+									$name = '';
+									$value = '';
+								}
+								else
+								{
+									$value .= $char;
+								}
+							}
+							else
+							{
+								if ($char == ')')$Bracket --;
+								if ($char == '(')$Bracket ++;
+								$value .= $char;
+							}
+							
+							$var = '';
+							$spliter = '';
+							
+						}
+					}#end invar
+					elseif ($Infunc)
+					# (则结束函数,
+					{
+						/*if (preg_match('/[\w]/',$char))
+						{
+							$func .= $char;
+						}
+						else*/
+						if ($char == '(')
+						{
+							$Infunc = false;
+							$Bracket ++;
+							$value .= $this->getRealFunction($func);
+							$value .= $char;
+							$func = '';
+						}
+						elseif($char == '$')
+						{
+							$InVar = true;
+							$value .= $func;
+							$Infunc = false;
+							$func = '';
+						}
+						else
+						{
+							if ($char == ')')$Bracket --;
+							if ($char == '(')$Bracket ++;
+							$func .= $char;
+						}
+					}#end infunc
+					else
+					#普通字符: $则开始变量, 字符开始则开始函数, 引号开始则开始引用,其他字符一概收入return 
+					{
+						if ($char == '$')
+						{
+							$InVar = true;
+						}
+						elseif (preg_match('/[a-zA-Z]/',$char))
+						{
+							$Infunc = true;
+							$func = $char;
+						}
+						elseif ($char == '"' || $char == "'")
+						{
+							$in_quote = true;
+							$quote_char = $char;
+							$value .= $char;
+						}
+						elseif ($char == ',')
+						{
+							if ($Bracket < 1){
+								$before_equal = true;
+								$return[$name] = $value;
+								$name = '';
+								$value = '';
+							}
+							else
+							{
+								$value .= $char;
+							}
+						}
+						else
+						{
+							if ($char == ')')$Bracket --;
+							if ($char == '(')$Bracket ++;
+							$value .= $char;
+						}
+					}
+				}
+			}
+		}#end for
+		
+		if($InVar)
+		{
+			$InVar = false;
+			
+			if (empty($var)) 
+			{
+				trigger_error($param . '变量格式错误.',E_USER_ERROR);exit;
+			}
+			$value .= $this->getRealVarible($var,$depth);
+			$var = '';
+			$spliter = '';
+			$return[$name] = $value;
+			$name = '';
+			$value = '';
+		}
+		elseif ($Infunc)
+		{
+			$value .= $func;
+			$return[$name] = $value;
+			$name = '';
+			$value = '';
+		}
+		else
+		{
+			$return[$name] = $value;
 		}
 		
-		$container = &load_container($this->Container);
-		$method = $this->Method;
-		$data = $container->$method($param);
-		
-		$this->Data = $data;
-		if ($this->Expire != 0)
-		 save_data('datas',$this->Container . '.' . $this->Method,$gn,sprintf('%012d%s',time(),serialize($data)));
-		
-		return $this->Data;
+		return $return;
 	}
 }

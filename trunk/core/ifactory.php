@@ -16,7 +16,7 @@
 
 interface iFactory 
 {
-	public static function getInstance();
+	public static function getInstance($driver='');
 }
 
 ?>

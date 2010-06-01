@@ -9,9 +9,9 @@
  * @author Eachcan <eachcan@cncms.com>
  *
  * @license http://www.apache.org/licenses/LICENSE-2.0
- * @version 1.0 
+ * @version 1.0 2010-05-28
  * @filesource /system/core/common.php
- * this file list some common functions, without actually action
+ * this file list some common functions, without actually actions
  */
 if ( ! defined('APP_PATH')) die('Connot start application.');
 
@@ -57,13 +57,20 @@ function is_really_writable($file)
 	return TRUE;
 }
 
+/**
+ * Try to include files in list
+ * This function require the first existed file in list, if fail, return false.
+ * 
+ * file name will be transfer to lowercase,So please keep all files' name is lowercase.
+ * @return bool
+ */
 function try_require()
 {
 	$success	= false;
 	
 	foreach (func_get_args() as $file)
 	{
-		if (file_exists($file))
+		if (file_exists(strtolower($file)))
 		{
 			require $file;
 			$success = true;
@@ -129,7 +136,7 @@ function &load_model($model)
  * Loads container from user's application folder
  * 
  * @param $container
- * @return unknown_type
+ * @return object
  */
 function &load_container($container)
 {
@@ -194,7 +201,7 @@ function load_config($config_name)
 		return $objects[$config_name];
 	}
 	
-	return $objects[$config_name] = try_require(APP_PATH . strtolower(DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . $config_name . '.cfg.php'));
+	return $objects[$config_name] = try_require(APP_PATH . strtolower(DIRECTORY_SEPARATOR . 'configs' . DIRECTORY_SEPARATOR . $config_name . '.cfg.php'));
 }
 
 /**
@@ -237,14 +244,14 @@ function &get_config()
 	global $config;
 	static $loaded = false;
 
-	if ( ! $loaded)
+	if (!$loaded)
 	{
-		if ( ! file_exists(APP_PATH . '/config/config.php'))
+		if (!file_exists(APP_PATH . '/configs/config.php'))
 		{
-			exit('The configuration file config.php does not exist.');
+			exit('The configuration file `config.php` does not exist.');
 		}
 
-		require(APP_PATH . '/config/config.php');
+		require(APP_PATH . '/configs/config.php');
 
 		if ( ! isset($config) OR ! is_array($config))
 		{
@@ -695,4 +702,23 @@ function parse_time_to_second($str)
 function get_ext($filename)
 {
 	return strtolower(trim(substr(strrchr($filename, '.'), 1)));
+}
+
+/**
+ * Test the given word is a reserved word or not.
+ * @param $word
+ * @return unknown_type
+ */
+function is_reserved($word)
+{
+	$reserved = ',list,new,and,or,xor,array,as,break,case,class,const,continue,default,do,else,empty,exit,for,function,global,if,switch,use,var,while,final,public,extends,private,protected,abstract,clone,try,catch,throw,this,static,';
+	return strpos($reserved, ",$word,") !== false;
+}
+if (!function_exists('lcfirst'))
+{
+	function &lcfirst(&$string)
+	{
+		$string{0} = strtolower($string{0});
+		return $string;
+	}
 }
