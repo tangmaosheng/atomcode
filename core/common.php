@@ -142,7 +142,7 @@ function &load_container($container)
 {
 	global $var;
 	
-	$pieces	= explode('/', $container);
+	$pieces	= explode('.', $container);
 	$class = array_pop($pieces);
 	array_unshift($pieces, 'containers');
 	
@@ -157,7 +157,7 @@ function &load_container($container)
  * @param $helper
  * @return unknown_type
  */
-function load_helper($helper)
+function load_helper($helper, $read=0)
 {
 	static $objects = array();
 
@@ -167,6 +167,21 @@ function load_helper($helper)
 		return $objects[$helper];
 	}
 	
+	if ($read)
+	{
+		if (file_exists(APP_PATH . strtolower(DIRECTORY_SEPARATOR . 'helpers' . DIRECTORY_SEPARATOR . $helper . '.php')))
+		{
+			return file_get_contents(APP_PATH . strtolower(DIRECTORY_SEPARATOR . 'helpers' . DIRECTORY_SEPARATOR . $helper . '.php'));
+		}
+		elseif (file_exists(SYS_PATH . strtolower(DIRECTORY_SEPARATOR . 'helpers' . DIRECTORY_SEPARATOR . $helper . '.php')))
+		{
+			return file_get_contents(SYS_PATH . strtolower(DIRECTORY_SEPARATOR . 'helpers' . DIRECTORY_SEPARATOR . $helper . '.php'));
+		}
+		else
+		{
+			return '';
+		}
+	}
 	return $objects[$helper] = try_require(
 								APP_PATH . strtolower(DIRECTORY_SEPARATOR . 'helpers' . DIRECTORY_SEPARATOR . $helper . '.php'), 
 								SYS_PATH . strtolower(DIRECTORY_SEPARATOR . 'helpers' . DIRECTORY_SEPARATOR . $helper . '.php'));
@@ -179,10 +194,10 @@ function load_helper($helper)
  * @param $factory
  * @return object
  */
-function &load_factory($factory)
+function &load_factory($factory, $driver = '')
 {
 	load_class($factory,FALSE,'factory/' . $factory);
-	eval('$s='.$factory . " :: getInstance();");
+	eval('$s='.$factory . " :: getInstance('$driver');");
 	return $s;
 }
 

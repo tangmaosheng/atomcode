@@ -18,7 +18,7 @@
  */
 class View
 {
-	private $uc;
+	private $var;
 	public $config;
 	public $input;
 	public $get;
@@ -27,23 +27,28 @@ class View
 	public $session;
 	
 	private $tagValue;
+	private $tagLevel;
+	private $useLevel;
 	private $sourceFile;
 	private $cacheFile;
 	private $viewFolder;
 	
 	public function __construct()
 	{
-		global $var;
+		global $var, $lang;
 		$this->config	=& $var->config;
 		$this->input	=& $var->input;
 		$this->get		=& $var->get;
 		$this->post		=& $var->post;
 		$this->cookie	=& $var->cookie;
 		$this->session	=& $var->session;
+		$this->lang		=& $lang;
 		
 		$this->viewExt	= empty($this->config['view_ext']) ? '.html' : $this->config['view_ext'];
 		
 		$this->tagValue = array();
+		$this->tagLevel = 0; 
+		$this->useLevel = 0; 
 	}
 
 	/**
