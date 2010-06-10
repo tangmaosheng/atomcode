@@ -40,21 +40,35 @@ class Compile
 	public $cacheFile;
 	public $sourceCode;
 	private $destCode;
+	private $preContent;
 	
 	public $config;
 	private $fromFile;
 	private $viewExt;
 	
 	private $tags;
+	private $helpers;
+	private $tagInfo;
+	private $stack;
 	
-	private $useDepth=0;
+	private $regx;
+	
+	private $useLevel=0;
 
 	public function __construct()
 	{
 		global $var;
 		$this->config	=& $var->config;
-		
-		$this->viewExt	= empty($this->config['view_ext']) ? '.html' : $this->config['view_ext'];
+
+		$this->tags = array();
+		$this->stack = array();
+		$this->viewExt	= empty($this->config['VIEW_EXT']) ? '.html' : $this->config['VIEW_EXT'];
+		#resource
+		$this->helpers[] = 'common';
+		$this->containers = array();
+		$this->ctnId = 0;
+		$this->tagLevel = 0; 
+		$this->useLevel = 0; 
 	}
 	
 	/**
@@ -79,7 +93,7 @@ class Compile
 		{
 			exit('You may have no privilege to read this view:' . $this->sourceFile);
 		}
-		
+
 		$this->parse();
 		$this->save();
 	}
@@ -92,9 +106,7 @@ class Compile
 	 */
 	public function parse()
 	{
-		$this->destCode = $this->sourceCode;
-		
-		if ($this->destCode == '')
+		if ($this->sourceCode == '')
 		{
 			return;
 		}
@@ -104,17 +116,20 @@ class Compile
 			$this->sourceFile = APP_PATH . '/views/';
 		}
 		# pre-process
-		$this->destCode = $this->preProcess($this->destCode, $this->sourceFile);
+		$this->sourceCode = $this->preProcess($this->sourceCode, $this->sourceFile);
 		# scan tags and replace them with php code
-		$this->parseContents($this->destCode);
+		$this->getTags();
+		$this->parseTags();
+		$this->preLoad();
+		$this->parseContents();
 		# clean up the destination code
-		#$this->cleanUp();
+		$this->cleanUp();
 	}
 	
 	/**
 	 * process `include` and `use` tags
 	 * 
-	 * @return unknown_type
+	 * @return string
 	 */
 	private function preProcess($code, $reference, $depth=0)
 	{
@@ -172,7 +187,7 @@ class Compile
 	 * @param $depth
 	 * @param $user_control
 	 * @param $param
-	 * @return unknown_type
+	 * @return string
 	 */
 	private function parseUse($depth, $user_control, $param)
 	{
@@ -200,7 +215,7 @@ class Compile
 	
 	/**
 	 * save contents to a cache file
-	 * @return unknown_type
+	 * @return void
 	 */
 	private function save()
 	{
@@ -214,257 +229,457 @@ class Compile
 		}
 	}
 	
-	private function parseContents(&$code)
+	private function getCleanPHP(&$code)
 	{
-		$this->getTags($code);
-		#$this->parseTags($code);
+		$comment = '~\/\*.*?\*\/~s';
+		$code = preg_replace($comment, '', $code);
+		$comment = '/[\r\n]\s*\/\/.*?[\r\n]/';
+		$code = preg_replace($comment, '', $code);
+		$comment = '/[\r\n]\s*\#.*?[\r\n]/';
+		$code = preg_replace($comment, '', $code);
+		$comment = '/\s{2,}/';
+		$code = preg_replace($comment, ' ', $code);
+		return $code;
 	}
 	
-	private function getTags(&$code)
+	private function cleanUp()
+	{
+		$this->destCode = preg_replace('~\?\>\s*\<\?php~', '', $this->destCode);
+		if (COMPILE_STRIP_SPACE)
+		{
+			$this->destCode = preg_replace('/\s{2,}/', ' ', $this->destCode);
+		}
+	}
+	
+	private function preLoad()
+	{
+		$this->destCode = '';
+		if (is_array($this->helpers))
+		{
+			$this->helpers = array_unique($this->helpers);
+			
+			foreach ($this->helpers as $helper)
+			{
+				$h = load_helper($helper, 1);
+				$this->destCode .= $this->getCleanPHP($h);
+			}
+		}
+		if (is_array($this->containers))
+		{
+			$this->containers = array_unique($this->containers);
+			foreach ($this->containers as $container)
+			{
+				$pieces	= explode('.', $container);
+				array_pop($pieces);
+				$class = array_pop($pieces);
+				$class = $this->config['CONTAINER_PREFIX'] . $class . $this->config['CONTAINER_SUFFIX'];
+				
+				if (file_exists(APP_PATH . strtolower(DIRECTORY_SEPARATOR . 'containers' . DIRECTORY_SEPARATOR . $class . '.class.php')))
+				{
+					$h = file_get_contents(APP_PATH . strtolower(DIRECTORY_SEPARATOR . 'containers' . DIRECTORY_SEPARATOR . $class . '.class.php'));
+				}
+				elseif (file_exists(SYS_PATH . strtolower(DIRECTORY_SEPARATOR . 'containers' . DIRECTORY_SEPARATOR . $class . '.class.php')))
+				{
+					$h = file_get_contents(SYS_PATH . strtolower(DIRECTORY_SEPARATOR . 'containers' . DIRECTORY_SEPARATOR . $class . '.class.php'));
+				}
+				else
+				{
+					$h = '';echo 'fuck!!!';
+				}
+				$this->destCode .= $this->getCleanPHP($h);
+			}
+		}
+	}
+	
+	/**
+	 * translate templet language to php code
+	 * @param $code
+	 * @return void
+	 */
+	private function parseContents()
+	{
+		$last = 0;
+
+		foreach ($this->tagInfo as &$tagInfo)
+		{
+			$this->destCode .= substr($this->sourceCode, $last, $tagInfo['start'] - $last);
+			$this->destCode .= $tagInfo['code'];
+			
+			$last = $tagInfo['end'];
+		}
+		$this->destCode .= substr($this->sourceCode, $last);
+	}
+	
+	/**
+	 * get the effective templet tags
+	 * @param $code
+	 * @return void
+	 */
+	private function getTags()
 	{
 		# match "helo\"helo", or single quote
-		$regx_dbquote = '"[^"\\\\\\$]*(?:\\\\.[^"\\\\\\$]*)*"';
-		$regx_sgquote = '\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\'';
-		$regx_quote = '(?:' . $regx_dbquote . '|' . $regx_sgquote . ')';
+		$this->regx['dbquote'] = '"[^"\\\\\\$]*(?:\\\\.[^"\\\\\\$]*)*"';
+		$this->regx['sgquote'] = '\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\'';
+		$this->regx['quote'] = '(?:' . $this->regx['dbquote'] . '|' . $this->regx['sgquote'] . ')';
 		
-		$regx_noquote = '[^\\{\\}\\[\\]\\"\\\']*';
-		$regx_expr = '(?:' . $regx_noquote . '|' . $regx_quote . ')';
+		# match bracket portion of variable
+		$this->regx['bracket_var'] = '\[\$?[\w\.]+\]|\.\$?[\w\.]+';
+		# match $var.var[num]
+		$this->regx['var'] = '\$\w+(?:' . $this->regx['bracket_var'] . ')*';
 		
-		$regx_tagname = '\w+(?:\\.\w+)*';
-		
-		$regx_start_tag = '\{(' . $regx_tagname . ')(\s+' . $regx_expr . '*)?\}';
-		$regx_end_tag = '\{/(\w*)\}';
-		$regx_tag = '~(?:' . $regx_start_tag . '|' . $regx_end_tag . ')~';
-
-		preg_match_all($regx_tag, $this->destCode, $this->tags, PREG_OFFSET_CAPTURE | PREG_SET_ORDER);
+		# match number
+		$this->regx['number'] = '(?:\-?\d+(?:\.\d+)?)';
+		# operator + - * / %
+        $this->regx['num_op'] = '(?:[\+\*\/\%]|(?:-(?!>)))';
+        # match > < >= <= ==
+        $this->regx['comp'] = '(?:<|>|==|>=|<=)';
+        # match $ab.c[e].f
+        $this->regx['complex_var'] = $this->regx['var'] . '(?:\s*' . $this->regx['num_op'] . '\s*(?:' . $this->regx['number'] . '|' . $this->regx['var'] . '))*';
+        # match |func:param
+        $this->regx['modifier'] = '(?:\|\w+(?::(?:' . $this->regx['number'] . '|' . $this->regx['var'] . '|' . $this->regx['quote'] . '))*)';
+        # match $var.var or 123 or "string"
+        $this->regx['value'] = '(?:' . $this->regx['var'] . '|' . $this->regx['number'] . '|' . $this->regx['quote'] . ')';
+        # match a.b.c
+        $this->regx['cnt'] = '\w+(?:\.\w+)+';
+        # match abc=$var, efg=0, hig="string"
+        $this->regx['param'] = '(?:\s+\w+\s*=\s*' . $this->regx['value'] . '(?:\s*,\s*\w+\s*=\s*' . $this->regx['value'] . ')*\s*)?';
+        
+        #variable for perl regular
+        $this->preg['var'] = "~\{" . $this->regx['complex_var'] . $this->regx['modifier'] . "*\}~";
+        $this->preg['helper'] = "~\{helper\s+\w+\}~";
+        $this->preg['lang'] = "~\{lang\s+\w+\}~";
+        $this->preg['mid'] = "~\{(?:else|continue|break)\}~";
+        $this->preg['end'] = "~\{\/(?:if|loop|each|use)?\}~";
+        $this->preg['if'] = '~\{(?:if|elseif)\s+' . $this->regx['value'] . '(?:\s*' . $this->regx['comp'] . '\s*' . $this->regx['value'] . ')?\}~';
+        $this->preg['loop'] = '~\{loop\s+\$\w+\s+\$\w+(?:\s+\$\w+)?\}~';
+        $this->preg['each'] = '~\{each(?:\s+\$\w+)?\}~';
+        $this->preg['cnt'] = '~\{' . $this->regx['cnt']  . $this->regx['param'] . '\}~';
+        $this->preg['use'] = '~\{use'  . $this->regx['param'] . '\}~';
+        $this->preg['comment'] = '~\{\*.*?\*\}~';
+        
+        foreach ($this->preg as $key => $value)
+        {
+        	preg_match_all($value, $this->sourceCode, $$key, PREG_OFFSET_CAPTURE | PREG_SET_ORDER);
+        }
+        $this->tags = array_merge($this->tags, $var, $lang, $helper, $mid, $end, $if, $loop, $each, $cnt, $comment, $use);
 	}
 
 	/**
-	 * @todo not complete
-	 * @param $param
-	 * @param $depth
+	 * process the tags
+	 * @return void
+	 */
+	private function parseTags()
+	{
+		foreach ($this->tags as $tag)
+		{
+			$this->tagInfo[$tag[0][1]]['tag'] = $tag[0][0];
+			$this->tagInfo[$tag[0][1]]['len'] = strlen($tag[0][0]);
+			$this->tagInfo[$tag[0][1]]['start'] = $tag[0][1];
+			$this->tagInfo[$tag[0][1]]['end'] = $tag[0][1] + $this->tagInfo[$tag[0][1]]['len'];
+		}
+		
+		ksort($this->tagInfo);
+		
+		foreach ($this->tagInfo as &$tag_info)
+		{
+			$tag_info['code'] = $this->getPHP($this->getCode($tag_info['tag']));
+		}
+	}
+	
+	/**
+	 * get php code for tags
+	 * @param $tag
 	 * @return unknown_type
 	 */
-	public function parseParam($param,$depth)
+	private function getCode($tag)
 	{
-		$param = trim($param);
-		if(empty($param))return array();
-		$before_equal = true;
-		$name = '';
-		$value= '';
-		$return = array();
-		
-		$in_quote = false;
-		$Slashing = false;
-		$Bracket = 0;
-		$quote_char = '';
-		
-		$var = '';
-		$func = '';
-		$InVar = false;
-		$Infunc = false;
-		$spliter = '';
-		
-		for($i = 0; $i < strlen($param); $i ++)
+		$regx = '~^\{((?:\/|\$|\*)?\w*)~';
+		preg_match($regx, $tag, $matches);
+
+		switch($matches[1])
 		{
-			$char = $param{$i};
+			case 'use':
+				return $this->compileUse($tag);
+				break;
+				
+			case 'lang':
+				return $this->compileLang($tag);
+				break;
+				
+			case 'helper':
+				return $this->compileHelper($tag);
+				break;
+				
+			case 'if':
+			case 'elseif':
+				return $this->compileIf($tag, $matches[1]);
+				break;
+				
+			case 'loop':
+				return $this->compileLoop($tag);
+				break;
+				
+			case 'each':
+				return $this->compileEach($tag);
+				break;
+				
+			case 'continue':
+			case 'break':
+			case 'else':
+				return $this->compileMid($tag);
+			break;
 			
-			if ($before_equal)
-			{
-				if (preg_match('/[\w\s]/',$char))
+			default:
+				if (substr($matches[1], 0, 1) == '$')
 				{
-					$name .= $char;
+					return $this->compileExp($tag);
 				}
-				elseif ($char == '=')
+				elseif (substr($matches[1], 0, 1) == '/')
 				{
-					$before_equal = false;
-					$name = trim($name);
-					if (preg_match('/\s/',$name))
-					{
-						trigger_error($param . '属性名包含空白字符!',E_USER_ERROR);exit;
-					}
+					return $this->compileEnd($tag);
+				}
+				elseif (substr($matches[1], 0, 1) == '*')
+				{
+					return '';
 				}
 				else
-				#no special chars in attribute name
 				{
-					trigger_error($param . '属性名包含非法字符',E_USER_ERROR);exit;
+					return $this->compileContainer($tag);
 				}
+		}
+	}
+	/**
+	 * get php code around by php tags;
+	 * @param $code
+	 * @return unknown_type
+	 */
+	public function getPHP($code)
+	{
+		if (!empty($code))return "<" . "?php " . $code . "?" . ">";
+		return '';
+	}
+	
+	private function compileEnd($tag)
+	{
+		$regx_end = "~\{\/(if|loop|each|use)?\}~";
+		preg_match($regx_end, $tag, $matches);
+		
+		if ($matches[1] == 'if')
+		{
+			if (array_pop($this->stack) != 'if')
+			{
+				die('Missing a if');
+			}
+			
+			return '}';
+		}
+		elseif ($matches[1] == 'loop')
+		{
+			return '}';
+		}
+		elseif ($matches[1] == 'use')
+		{
+			return 'unset($this->var[' . $this->useLevel . ']);';
+		}
+		elseif ($matches[1] == 'each')
+		{
+			$this->tagLevel --;
+			return '}';
+		}
+		elseif ($matches[1] == '')
+		{
+			$this->tagLevel --;
+			return 'unset($this->containers[' . $this->useLevel . '])';
+		}
+	}
+	
+	/**
+	 * compile expression
+	 * @param $tag
+	 * @return unknown_type
+	 */
+	private function compileExp($tag)
+	{
+		$complex_var = '~^{(' . $this->regx['complex_var'] . ')~';
+		preg_match($complex_var, $tag, $matches);
+		$cmd = $matches[1];
+		$modifier = '~' . $this->regx['modifier'] . '~';
+		preg_match_all($modifier, $tag, $funcs);
+		
+		return 'echo ' . $this->compileModifier($this->compileVar($cmd), $funcs) . ';';
+	}
+	
+	private function compileVar($str)
+	{
+		$str = preg_replace('~\.(\$?\w+)~e', 'preg_match(\'~^(?:\$\w+|\d+)$~\', \'$1\') ? "[$1]" : "[\'$1\']"', $str);
+		$str = preg_replace('~\$(\d*)(\w+)~e', '$this->compileViewVar("$1", "$2")', $str);
+		
+		return $str;
+	}
+	
+	private function compileViewVar($level, $var_name)
+	{
+		if ($level === '')
+		{
+			if (in_array($var_name, array('config', 'get', 'post', 'input', 'cookie', 'session', 'lang')))
+			{
+				return '$this->' . $var_name;
+			}
+			elseif ($var_name == 'var')
+			{
+				return '$this->var[' . $this->useLevel . ']'; 
 			}
 			else
-			#Bebore equal
 			{
-				if ($in_quote)
-				{
-					if ($Slashing)
-					{
-						$Slashing = false;
-					}
-					else
-					{
-						if ($char == '\\')
-						{
-							$Slashing = true;
-						}
-						elseif ($char == $quote_char)
-						{
-							$in_quote = false;
-						}
-					}
-					$value .= $char;
-				}
-				else
-				#out of quote
-				{
-					if ($InVar)
-					{
-						if (preg_match('/[\w]/',$char))
-						{
-							if (!empty($spliter))
-							{
-								$var .= $spliter;
-								$spliter = '';
-							}
-							$var .= $char;
-						}
-						elseif ($char == '.')
-						{
-							$spliter = '.';
-						}
-						else
-						{
-							$InVar = false;
-							
-							if (empty($var))
-							{
-								trigger_error($param . '变量格式错误.',E_USER_ERROR);exit;
-							}
-							$value .= $this->getRealVarible($var,$depth);
-							$value .= $spliter;
-							
-							if ($char == ',')
-							{
-								if ($Bracket < 1){
-									$before_equal = true;
-									$return[$name] = $value;
-									$name = '';
-									$value = '';
-								}
-								else
-								{
-									$value .= $char;
-								}
-							}
-							else
-							{
-								if ($char == ')')$Bracket --;
-								if ($char == '(')$Bracket ++;
-								$value .= $char;
-							}
-							
-							$var = '';
-							$spliter = '';
-							
-						}
-					}#end invar
-					elseif ($Infunc)
-					# (则结束函数,
-					{
-						/*if (preg_match('/[\w]/',$char))
-						{
-							$func .= $char;
-						}
-						else*/
-						if ($char == '(')
-						{
-							$Infunc = false;
-							$Bracket ++;
-							$value .= $this->getRealFunction($func);
-							$value .= $char;
-							$func = '';
-						}
-						elseif($char == '$')
-						{
-							$InVar = true;
-							$value .= $func;
-							$Infunc = false;
-							$func = '';
-						}
-						else
-						{
-							if ($char == ')')$Bracket --;
-							if ($char == '(')$Bracket ++;
-							$func .= $char;
-						}
-					}#end infunc
-					else
-					#普通字符: $则开始变量, 字符开始则开始函数, 引号开始则开始引用,其他字符一概收入return 
-					{
-						if ($char == '$')
-						{
-							$InVar = true;
-						}
-						elseif (preg_match('/[a-zA-Z]/',$char))
-						{
-							$Infunc = true;
-							$func = $char;
-						}
-						elseif ($char == '"' || $char == "'")
-						{
-							$in_quote = true;
-							$quote_char = $char;
-							$value .= $char;
-						}
-						elseif ($char == ',')
-						{
-							if ($Bracket < 1){
-								$before_equal = true;
-								$return[$name] = $value;
-								$name = '';
-								$value = '';
-							}
-							else
-							{
-								$value .= $char;
-							}
-						}
-						else
-						{
-							if ($char == ')')$Bracket --;
-							if ($char == '(')$Bracket ++;
-							$value .= $char;
-						}
-					}
-				}
-			}
-		}#end for
-		
-		if($InVar)
-		{
-			$InVar = false;
-			
-			if (empty($var)) 
-			{
-				trigger_error($param . '变量格式错误.',E_USER_ERROR);exit;
-			}
-			$value .= $this->getRealVarible($var,$depth);
-			$var = '';
-			$spliter = '';
-			$return[$name] = $value;
-			$name = '';
-			$value = '';
-		}
-		elseif ($Infunc)
-		{
-			$value .= $func;
-			$return[$name] = $value;
-			$name = '';
-			$value = '';
+				return '$this->tagValue[' . $this->tagLevel .']["' . $var_name . '"]'; 
+			}			
 		}
 		else
 		{
-			$return[$name] = $value;
+			if ($var_name == 'var')
+			{
+				return '$this->var[' . $level . ']'; 
+			}
+			else
+			{
+				if ($level < 0) $level = $this->tagLevel + $level;
+				return '$this->tagValue[' . $level . ']["' . $var_name . '"]'; 	
+			}
+		}
+	}
+	
+	private function compileModifier($var, $funcs)
+	{
+		$regx_func = '~\|(\w+)(?::(' . $this->regx['number'] . '|' . $this->regx['var'] . '|' . $this->regx['quote'] . '))*~';
+		foreach ($funcs[0] as $func)
+		{
+			preg_match($regx_func, $func, $matches);
+			$func_name = $matches[1];
+			$matches = array_slice($matches, 2);
+			foreach ($matches as &$m)
+			{
+				$mstring .= ',' . $this->compileVar($m);
+			}
+			$var = "ac_" . $func_name . "($var $mstring)";
+		}
+		return $var;
+	}
+	
+	private function compileHelper($tag)
+	{
+		$regx_helper = '~\{helper\s*(\w+)\}~';
+		preg_match($regx_helper, $tag, $matches);
+		
+		$this->helpers[] = $matches[1];
+		return '';
+	}
+	
+	private function compileLang($tag)
+	{
+		$regx_helper = '~\{lang\s*(\w+)\}~';
+		preg_match($regx_helper, $tag, $matches);
+		
+		return 'load_lang("' . $matches[1] . '");';
+	}
+	
+	private function compileUse($tag)
+	{
+		$regx_use = '~(\w+)\s*=\s*(' . $this->regx['value'] . ')~';
+		preg_match_all($regx_use, $tag, $matches);
+		
+		$this->useLevel++;
+		for ($i = 0; $i < count($matches[1]); $i ++)
+		{
+			$string .= '$this->var[' . $this->useLevel . ']["' . $matches[1][$i] . '"]=' . $this->compileVar($matches[2][$i]) . ';';
 		}
 		
-		return $return;
+		return $string;
+	}
+	
+	private function compileIf($tag, $name)
+	{
+		$name == 'if' && $this->stack[] = 'if';
+		
+		if ($name == 'elseif' && end($this->stack) != 'if')
+		{
+			die('Missing if tag');
+		}
+		
+		$regx_if = '~if\s+(' . $this->regx['value'] . ')(?:\s*(' . $this->regx['comp'] . ')\s*(' . $this->regx['value'] . '))?~';
+		preg_match($regx_if, $tag, $matches);
+		
+		$string = '';
+		if ($name == 'elseif')$string = '}';
+
+		return $string . $name . '(' . $this->compileVar($matches[1]) . $matches[2] . $this->compileVar($matches[3]) . '){';
+	}
+	
+	private function compileLoop($tag)
+	{
+		$regx_loop = '~\{loop\s+(\$\w+)\s+(\$\w+)(?:\s+(\$\w+))?\}~';
+		
+		preg_match($regx_loop, $tag, $matches);
+		$string = 'foreach (' . $this->compileVar($matches[1]) . ' as ' . $this->compileVar($matches[2]);
+		if (!empty($matches[3]))
+		{
+			$string .= ' => ' . $this->compileVar($matches[3]);
+		}
+		
+		$string .= '){';
+		return $string;
+	}
+	
+	private function compileMid($tag)
+	{
+		$tag = trim(substr($tag, 1, -1));
+		
+		if ($tag == 'else')
+		{
+			return '}else{';
+		}
+		return $tag . ';';
+	}
+	
+	private function compileContainer($tag)
+	{
+		$regx_ctn = '~\{(' . $this->regx['cnt'] . ')('  . $this->regx['param'] . ')\}~';
+		preg_match($regx_ctn, $tag, $matches);
+		
+		$this->ctnId++;
+		$this->tagLevel ++;
+		$this->containers[] = $matches[1];
+		$param_string = $matches[2];
+		$cn = array_slice(explode('.', $matches[1]), -2);
+		$cn[0] = $this->config['CONTAINER_PREFIX'] . $cn[0] . $this->config['CONTAINER_SUFFIX'];
+
+		$regx_param = '~(\w+)\s*=\s*(' . $this->regx['value'] . ')~';
+		preg_match_all($regx_param, $param_string, $matches);
+		
+		$string = '$param=array();';
+		for ($i = 0; $i < count($matches[1]); $i ++)
+		{
+			$string .= '$param["' . $matches[1][$i] . '"]=' . $this->compileVar($matches[2][$i]) . ';';
+		}
+		$string .= '$this->containers[' . $this->ctnId . ']=new ' . $cn[0] . '();';
+		$string .= '$this->tagValue[' . $this->tagLevel . ']=$this->containers[' . $this->ctnId . ']->' . $cn[1] . '($param);';
+		
+		return $string;
+	}
+	
+	private function compileEach($tag)
+	{
+		$regx_each = '~\{each(?:\s+\$(\w+))\s*}~';
+		preg_match($regx_each, $tag, $matches);
+
+		if (empty($matches[1]))
+		{
+			$this->tagLevel ++;
+			return 'foreach ($this->tagValue[' . ($this->tagLevel - 1) . '] as $this->tagValue[' . $this->tagLevel . ']){';
+		}
+		else
+		{
+			$this->tagLevel ++;
+			return 'foreach ($this->tagValue[' . ($this->tagLevel - 1) . ']["' . $matches[1] . '"] as $this->tagValue[' . $this->tagLevel . ']){';
+		}
 	}
 }
