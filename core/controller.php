@@ -27,6 +27,8 @@ class Controller
 		$this->cookie			=& $var->cookie;
 		$this->session			=& $var->session;
 		$this->request_method	= $var->request_method;
+		$this->method			= $var->method;
+		$this->controller		= $var->controller;
 		
 		$this->isPost			= is_post();
 		
