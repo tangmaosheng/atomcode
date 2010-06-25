@@ -71,7 +71,7 @@ class Application
 		$b = $this->method;
 		$a = str_replace(' ', '', ucwords(strtolower(str_replace('-', ' ', $a))));
 		$b = str_replace(' ', '', lcfirst(ucwords(strtolower(str_replace('-', ' ', $b)))));
-		
+
 		$controller = $var->config['CONTROLLER_CLASS_PREFIX'] . $a . $var->config['CONTROLLER_CLASS_SUFFIX'];
 		$filename = (empty($this->subDir) ? '' :  $this->subDir . '/') . $controller . '.class.php';
 		

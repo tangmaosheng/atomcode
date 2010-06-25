@@ -7,7 +7,7 @@ if ($var->config['ROUTER']['MODE'] == 1)
 }
 elseif ($var->config['ROUTER']['MODE'] == 2)
 {
-	$url = trim($_SERVER['REDIRECT_URL'], ' /');
+	$url = trim($_SERVER['PATH_INFO'], ' /');
 }
 elseif ($var->config['ROUTER']['MODE'] == 3)
 {
@@ -28,30 +28,31 @@ if ($var->config['ROUTER']['MODE'] && is_array($var->config['ROUTER']['PATTERN']
 			$unprocessed = false;
 			$url = preg_replace($pattern, $replace[0], $url);
 			$var->static_file = $url;
-			$static  = $replace[1];
+			$var->is_static  = $replace[1];
 			parse_str($url, $url_get);
 			$var->get = array_merge($var->get, $url_get, $query_string_arr);
 			break;
 		}
 	}
 }
-if ($unprocessed && $var->config['ROUTER']['MODE'] && empty($var->config['ROUTER']['PATTERN']))
+
+if ($unprocessed && $var->config['ROUTER']['MODE'])
 {
 	#remove extension of request
 	if ($url && $var->config['STATIC']['EXT'] && preg_match('!^' . preg_quote('index' . $var->config['STATIC']['EXT']) . '$!', $url))
 	{
-		$static = true;
+		$var->is_static = true;
 		$var->static_file = $url;
 		$url = substr($url, 0, 0 - strlen($var->config['STATIC']['EXT']) - 5);
 	}
 	elseif (preg_match('!' . preg_quote($var->config['STATIC']['EXT']) . '$!', $url))
 	{
-		$static = true;
+		$var->is_static = true;
 		$var->static_file = $url;
 		$url = preg_replace('!' . preg_quote($var->config['STATIC']['EXT']) . '$!', '', $url);
 	}
-	
-	if ($static)
+
+	if ($var->is_static)
 	{
 		$var->static = $var->config['ROUTER']['STATIC'];
 	}
@@ -66,7 +67,7 @@ if ($unprocessed && $var->config['ROUTER']['MODE'] && empty($var->config['ROUTER
 	$var->get = array_merge($var->get, $get2, $query_string_arr);
 }
 $var->controller = $var->get[$var->config['ROUTER']['CONTROLLER']];
-$var->controller = $var->get[$var->config['ROUTER']['METHOD']];
+$var->method = $var->get[$var->config['ROUTER']['METHOD']];
 
 unset($url);
 unset($query_string);

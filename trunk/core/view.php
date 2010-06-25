@@ -26,6 +26,9 @@ class View
 	public $cookie;
 	public $session;
 	
+	private $static;
+	private $static_file;
+	
 	private $tagValue;
 	private $tagLevel;
 	private $useLevel;
@@ -43,6 +46,8 @@ class View
 		$this->cookie	=& $var->cookie;
 		$this->session	=& $var->session;
 		$this->lang		=& $lang;
+		$this->static	=& $var->is_static;
+		$this->static_file	=& $var->static_file;
 		
 		$this->viewExt	= empty($this->config['view_ext']) ? '.html' : $this->config['view_ext'];
 		
@@ -110,7 +115,12 @@ class View
 	 */
 	public function render($view)
 	{
-		echo $this->getData($view);
+		$html = $this->getData($view);
+		if ($this->static)
+		{
+			
+		}
+		echo $html;
 	}
 	
 	/**

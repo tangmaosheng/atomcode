@@ -229,16 +229,16 @@ class Compile
 		}
 	}
 	
-	private function getCleanPHP(&$code)
+	public function getCleanPHP(&$code)
 	{
 		$comment = '~\/\*.*?\*\/~s';
 		$code = preg_replace($comment, '', $code);
-		$comment = '/[\r\n]\s*\/\/.*?[\r\n]/';
-		$code = preg_replace($comment, '', $code);
-		$comment = '/[\r\n]\s*\#.*?[\r\n]/';
-		$code = preg_replace($comment, '', $code);
+		$comment = '/([\r\n](?:"[^"\\\\\\$]*(?:\\\\.[^"\\\\\\$]*)*"|\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\'|[^\r\n\'\"])*)\/\/.*?([\r\n])/';
+		$code = preg_replace($comment, '$1$2', $code);
+		$comment = '/([\r\n](?:"[^"\\\\\\$]*(?:\\\\.[^"\\\\\\$]*)*"|\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\'|[^\r\n\'\"])*)#.*?([\r\n])/';
+		$code = preg_replace($comment, '$1$2', $code);
 		$comment = '/\s{2,}/';
-		$code = preg_replace($comment, ' ', $code);
+		if (COMPILE_STRIP_SPACE)$code = preg_replace($comment, ' ', $code);
 		return $code;
 	}
 	
@@ -284,7 +284,7 @@ class Compile
 				}
 				else
 				{
-					$h = '';echo 'fuck!!!';
+					$h = '';echo $class;
 				}
 				$this->destCode .= $this->getCleanPHP($h);
 			}
@@ -338,7 +338,7 @@ class Compile
         # match |func:param
         $this->regx['modifier'] = '(?:\|\w+(?::(?:' . $this->regx['number'] . '|' . $this->regx['var'] . '|' . $this->regx['quote'] . '))*)';
         # match $var.var or 123 or "string"
-        $this->regx['value'] = '(?:' . $this->regx['var'] . '|' . $this->regx['number'] . '|' . $this->regx['quote'] . ')';
+        $this->regx['value'] = '(?:' . $this->regx['complex_var'] . '|' . $this->regx['number'] . '|' . $this->regx['quote'] . ')';
         # match a.b.c
         $this->regx['cnt'] = '\w+(?:\.\w+)+';
         # match abc=$var, efg=0, hig="string"
@@ -489,7 +489,7 @@ class Compile
 		elseif ($matches[1] == '')
 		{
 			$this->tagLevel --;
-			return 'unset($this->containers[' . $this->useLevel . '])';
+			return 'unset($this->containers[' . $this->useLevel . ']);';
 		}
 	}
 	
