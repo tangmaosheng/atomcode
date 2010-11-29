@@ -323,9 +323,10 @@ class Compile
         # match $var.var or 123 or "string"
         $this->regx['value'] = '(?:' . $this->regx['complex_var'] . '|' . $this->regx['number'] . '|' . $this->regx['quote'] . ')';
         # match a.b.c
-        $this->regx['cnt'] = '\w+(?:\.\w+)+';
+        $this->regx['cnt'] = '\w+\.\w+';
         # match abc=$var, efg=0, hig="string"
         $this->regx['param'] = '(?:\s+\w+\s*=\s*' . $this->regx['value'] . '(?:\s*,\s*\w+\s*=\s*' . $this->regx['value'] . ')*\s*)?';
+        $this->regx['path'] = '(?:\.[\w\-]+)*';
         
         #variable for perl regular
         # {$varible|modifier:parm .. }
@@ -343,7 +344,7 @@ class Compile
         # {class.method param=value, param=value..}
         $this->preg['cnt'] = '~\{' . $this->regx['cnt']  . $this->regx['param'] . '\}~';
         # {use.path.to param=value..}
-        $this->preg['use'] = '~\{use'  . $this->regx['param'] . '\}~';
+        $this->preg['use'] = '~\{use' . $this->regx['path']  . $this->regx['param'] . '\}~';
         
         foreach ($this->preg as $key => $value)
         {
