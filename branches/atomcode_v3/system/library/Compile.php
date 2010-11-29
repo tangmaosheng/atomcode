@@ -48,7 +48,6 @@ class Compile
 	private $viewExt;
 	
 	private $tags;
-	private $helpers;
 	private $tagInfo;
 	private $stack;
 	
@@ -58,17 +57,13 @@ class Compile
 
 	public function __construct()
 	{
-		global $var;
-		$this->config	=& $var->config;
+		$this->config	=& Core::$config;
 
 		$this->tags = array();
 		$this->stack = array();
-		$this->viewExt	= empty($this->config['VIEW_EXT']) ? '.html' : $this->config['VIEW_EXT'];
+		$this->viewExt	= empty($this->config['VIEW_EXT']) ? '.tpl' : $this->config['VIEW_EXT'];
 		#resource
-		$this->helpers[] = 'common';
 		$this->containers = array();
-		$this->ctnId = 0;
-		$this->tagLevel = 0; 
 		$this->useLevel = 0; 
 	}
 	
@@ -112,10 +107,6 @@ class Compile
 			return;
 		}
 		
-		if (empty($this->sourceFile))
-		{
-			$this->sourceFile = APP_PATH . '/view/';
-		}
 		# pre-process
 		$this->sourceCode = $this->preProcess($this->sourceCode, $this->sourceFile);
 		# scan tags and replace them with php code
@@ -255,16 +246,6 @@ class Compile
 	private function preLoad()
 	{
 		$this->destCode = '';
-		if (is_array($this->helpers))
-		{
-			$this->helpers = array_unique($this->helpers);
-			
-			foreach ($this->helpers as $helper)
-			{
-				$h = load_helper($helper, 1);
-				$this->destCode .= $this->getCleanPHP($h);
-			}
-		}
 		if (is_array($this->containers))
 		{
 			$this->containers = array_unique($this->containers);
@@ -335,7 +316,8 @@ class Compile
         # match > < >= <= == !=
         $this->regx['comp'] = '(?:<|>|==|>=|<=|!=)';
         # match $ab.c[e].f
-        $this->regx['complex_var'] = $this->regx['var'] . '(?:\s*' . $this->regx['num_op'] . '\s*(?:' . $this->regx['number'] . '|' . $this->regx['var'] . '))*';
+        $this->regx['complex_var'] = $this->regx['var'] . '(?:\s*' . $this->regx['num_op'] . '\s*(?:' 
+        	. $this->regx['number'] . '|' . $this->regx['var'] . '))*';
         # match |func:param
         $this->regx['modifier'] = '(?:\|\w+(?::(?:' . $this->regx['number'] . '|' . $this->regx['var'] . '|' . $this->regx['quote'] . '))*)';
         # match $var.var or 123 or "string"
@@ -348,16 +330,20 @@ class Compile
         #variable for perl regular
         # {$varible|modifier:parm .. }
         $this->preg['var'] = "~\{" . $this->regx['complex_var'] . $this->regx['modifier'] . "*\}~";
-//        $this->preg['helper'] = "~\{helper\s+\w+\}~";
-        $this->preg['lang'] = "~\{lang\s+\w+\}~";
+		# {lang key} key=\w.-
+        $this->preg['lang'] = "~\{lang\s+[\w\.\-]+\}~";
+        # {else} {continue} {break}
         $this->preg['mid'] = "~\{(?:else|continue|break)\}~";
-        $this->preg['end'] = "~\{\/(?:if|loop|each|use)?\}~";
+        # {/if} {/foreach}
+        $this->preg['end'] = "~\{\/(?:if|foreach)?\}~";
+        # {if ..} {elseif ..}
         $this->preg['if'] = '~\{(?:if|elseif)\s+' . $this->regx['value'] . '(?:\s*' . $this->regx['comp'] . '\s*' . $this->regx['value'] . ')?\}~';
-        //$this->preg['loop'] = '~\{loop\s+\$\w+\s+\$\w+(?:\s+\$\w+)?\}~';
-        $this->preg['each'] = '~\{each(?:\s+\$\w+)?\}~';
-        //$this->preg['cnt'] = '~\{' . $this->regx['cnt']  . $this->regx['param'] . '\}~';
+        # {foreach $array [$key ]$value}
+        $this->preg['each'] = '~\{foreach(?:\s+'. $this->regx['var'] . ')(?:\s+\$\w+){1,2}\}~';
+        # {class.method param=value, param=value..}
+        $this->preg['cnt'] = '~\{' . $this->regx['cnt']  . $this->regx['param'] . '\}~';
+        # {use.path.to param=value..}
         $this->preg['use'] = '~\{use'  . $this->regx['param'] . '\}~';
-        $this->preg['comment'] = '~\{\*.*?\*\}~';
         
         foreach ($this->preg as $key => $value)
         {
@@ -565,15 +551,6 @@ class Compile
 			$var = "ac_" . $func_name . "($var $mstring)";
 		}
 		return $var;
-	}
-	
-	private function compileHelper($tag)
-	{
-		$regx_helper = '~\{helper\s*(\w+)\}~';
-		preg_match($regx_helper, $tag, $matches);
-		
-		$this->helpers[] = $matches[1];
-		return '';
 	}
 	
 	private function compileLang($tag)
