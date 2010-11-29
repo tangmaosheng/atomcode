@@ -48,6 +48,7 @@ class Core {
 	
 	public static function start() {
 		self::initialize();
+		self::dispacth();
 	}
 	
 	/**
@@ -59,9 +60,8 @@ class Core {
 		
 		$dirs = array( 'controller' => 'controller', 'model' => 'model', 'helper' => 'helper', 'driver' => 'driver', 'exception' => 'exception', 'interface' => 'interface');
 		
-		$pieces = explode('_', $name);
+		$pieces = explode('/', ltrim(strtolower(preg_replace('/([A-Z])/', '/$1', $name)), '/'));
 		$type = strtolower(end($name));
-		
 		if (in_array($type, $dirs)) {
 			$dir = $dirs[$type];
 			
@@ -84,5 +84,9 @@ class Core {
 	public static function exec_time() {
 		$now = microtime(true);
 		return $now - self::$start_time;
+	}
+	
+	private static function dispacth() {
+		$controller = Url::parse();
 	}
 }
