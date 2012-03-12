@@ -1,6 +1,6 @@
 =概述=
 
-[features]
+[features 特性]
 [许可协议]
 [关于AtomCode]
 ---
