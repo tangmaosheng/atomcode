@@ -51,7 +51,7 @@ server {
 }
 }}}
 
-*Apache*：你可以将这些代码写在 .htaccess
+*Apache* ：你可以将这些代码写在 .htaccess
 
 {{{
 RewriteEngine on
@@ -59,4 +59,80 @@ RewriteCond $1 !^(index\.php|images|robots\.txt)
 RewriteRule ^(.*)$ /index.php/$1 [L]
 }}}
 
+通过以上两种 Rewrite 规则，你就可以使用 /path/info 这样格式的URL
+
 =如何部署到生产环境=
+
+*1. 修改入口文件*
+
+测试模式关闭、工作环境改为生产环境配置目录名
+
+{{{
+/**
+ * 
+ * 是否测试模式，控制错误输出和允许调试、测试、记录日志, 不定义则表示 TEST_MODEL 为 FALSE
+ * @var Boolean
+ */
+define("TEST_MODEL", FALSE);
+/**
+ * 定义环境，如果不定义则使用 /application/config/目录下配置，否则使用 /application/config/ENV/目录下配置
+ * @var String
+ */
+define('ENV', '');
+}}}
+
+*2. 修改配置* （公共配置中应该提前配置好）
+
+这两项要修改为正确的配置：
+
+{{{
+$config['base_url']	= 'http://www.example.com/';
+$config['index_page'] = '';
+}}}
+
+检查配置项：
+
+  * 是否关闭评测
+{{{
+$config['enable_benchmark'] = FALSE;
+}}}
+
+  * 数据库配置
+    # 关闭数据库日志
+{{{
+$config['database']['log'] = FALSE;
+}}}
+
+    # 关闭调试模式
+{{{
+$config['database']['db_debug'] = FALSE;
+}}}
+
+    # 关闭查询记录功能
+{{{
+$config['database']['save_queries'] = FALSE;
+}}}
+
+*在开发过程中增加的配置要同步到公共配置中*
+
+*3. 设置目录权限*
+|| application/cache || 777 ||
+|| application/log || 777 ||
+
+*4. 删除可能存在的多余文件*
+
+清空cache目录
+
+*提交应注意*
+
+以下文件不要提交：
+
+ .settings
+ .buildpath
+ .project
+ index.php(以及其他入口文件)
+ application/cache/*
+ application/log/*
+
+
+配置及其他文件均可提交
