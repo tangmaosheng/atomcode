@@ -1,13 +1,25 @@
+#labels Featured
 =概述=
 
-[features 特性]
-[许可协议]
-[关于AtomCode]
+[Featured 特性]
+
+[License 许可协议]
+
+[About 关于AtomCode]
+
 ---
-[服务器要求]
-[如何安装]
-[配置选项]
+[Required 服务器要求]
+
+[Installation 如何安装]
+
+[Configure 配置选项]
 
 =开发指南=
-[控制器]
-[模块]
+
+[Controller 控制器]
+
+[Block 模块]
+
+[Model 模型]
+
+[View 视图]
