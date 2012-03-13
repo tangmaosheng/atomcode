@@ -1,0 +1,54 @@
+#labels Phase-Deploy
+=如何安装=
+
+*复制文件到您的目录*
+
+框架包含三部分文件: system, application, index.php。
+
+分别表示：框架目录，应用目录，入口文件。在此框架上进行的开发，所有代码将存在于 application 目录下。而访问则全部通过入口文件进行。
+
+这三部分的名字可以随意更改。只需要在入口文件中指定另外两部分即可。
+
+*修改目录权限*
+
+以下将以 application 作为应用目录进行介绍。
+
+需要读写权限的目录：
+
+application/cache
+
+application/log
+
+*创建配置文件*
+
+框架运行至少需要一个配置文件：config.php ，你可以将 `system/config/config.php` 复制到 `application/config/config.php`
+
+详细配置信息请参考 [configure 配置选项]
+
+*配置 Web Server*
+
+干净的URL需要使用 Rewrite，以下是框架默认的URL规则需要的配置方法：
+
+nginx:
+
+{{{
+server {
+        listen       80;
+        server_name  www.example.com;
+        root /data/www/www.example.com;
+        if (!-e $request_filename)
+        {
+              rewrite ^/(.*)$ /index.php? last;
+        }
+
+        index index.php;
+
+        location ~ \.php$ {
+                fastcgi_pass   127.0.0.1:9000;
+                fastcgi_index  index.php;
+                include fcgi.conf;
+        }
+}
+}}}
+
+=如何部署到生产环境=
