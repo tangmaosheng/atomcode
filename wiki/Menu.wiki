@@ -1,25 +1,25 @@
-[Welcome 欢迎使用]
+  * [Welcome 欢迎使用]
 
-=概述=
+  * 概述
 
-[Featured 特性]
+    * [Featured 特性]
 
-[License 许可协议]
+    * [License 许可协议]
 
-[About 关于AtomCode]
+    * [About 关于AtomCode]
 
-[Required 服务器要求]
+    * [Required 服务器要求]
 
-[Installation 如何安装]
+    * [Installation 如何安装]
 
-[Configure 配置选项]
+    * [Configure 配置选项]
 
-=开发指南=
+  * 开发指南
 
-[Controller 控制器]
+    * [Controller 控制器]
 
-[Block 模块]
+    * [Block 模块]
 
-[Model 模型]
+    * [Model 模型]
 
-[View 视图]
+    * [View 视图]
