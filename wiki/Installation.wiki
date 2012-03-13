@@ -1,4 +1,8 @@
 #labels Phase-Deploy
+#sidebar TableOfContents
+  * 如何安装
+  * 如何部署
+
 =如何安装=
 
 *复制文件到您的目录*
