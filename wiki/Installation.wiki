@@ -135,9 +135,9 @@ $config['database']['save_queries'] = FALSE;
 
   index.php(以及其他入口文件)
 
-  application/cache/*
+  application/cache/**
 
-  application/log/*
+  application/log/**
 
 
 配置及其他文件均可提交
