@@ -1,6 +1,0 @@
-#labels Phase-Support,Phase-Implementation,Featured
-AtomCode 是一个源自DNN思想的PHP5开源框架.
-
-代码不完全是作者本人所写,其中包含有来自CodeIgniter的一些类和ThinkPHP中的ActiveRecode数据库类,溶合了部分MVC思想.
-
-AtomCode 意在超越MVC,拥有一个全新的架构模式.它的思想是一个功能的代码只写一次,整个网站都可以使用.一个功能只做一次,到处可以使用.
