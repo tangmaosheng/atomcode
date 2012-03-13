@@ -1,6 +1,8 @@
 #labels Featured
-=欢迎使用 AtomCode= <g:plusone size="medium"></g:plusone>
+=欢迎使用 AtomCode= 
 
 Let's write less, do more.
 Let's write clean code.
 Let's write security code.
+
+<g:plusone size="medium"></g:plusone>
