@@ -125,13 +125,18 @@ $config['database']['save_queries'] = FALSE;
 
 *提交应注意*
 
- 以下文件不要提交：
+以下文件不要提交：
 
   .settings
+
   .buildpath
+
   .project
+
   index.php(以及其他入口文件)
+
   application/cache/*
+
   application/log/*
 
 
