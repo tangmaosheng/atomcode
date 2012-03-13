@@ -133,11 +133,10 @@ $config['database']['save_queries'] = FALSE;
 
   .project
 
-  index.php(以及其他入口文件)
-
   application/cache/**
 
   application/log/**
 
+除第一次外，入口文件也尽量不要提交，因为它包含了您的私有配置
 
 配置及其他文件均可提交
