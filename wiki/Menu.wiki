@@ -8,7 +8,6 @@
 
 [About 关于AtomCode]
 
----
 [Required 服务器要求]
 
 [Installation 如何安装]
