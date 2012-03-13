@@ -29,7 +29,7 @@ application/log
 
 干净的URL需要使用 Rewrite，以下是框架默认的URL规则需要的配置方法：
 
-nginx:
+*Nginx:*
 
 {{{
 server {
@@ -49,6 +49,14 @@ server {
                 include fcgi.conf;
         }
 }
+}}}
+
+*Apache*：你可以将这些代码写在 .htaccess
+
+{{{
+RewriteEngine on
+RewriteCond $1 !^(index\.php|images|robots\.txt)
+RewriteRule ^(.*)$ /index.php/$1 [L]
 }}}
 
 =如何部署到生产环境=
