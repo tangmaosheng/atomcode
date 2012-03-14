@@ -125,7 +125,7 @@ $config['database']['save_queries'] = FALSE;
 
 *提交应注意*
 
-以下文件不要提交：
+以下文件不要提交(给使用Dreamweaver和Zend Studio或Eclipse的同学提示)：
 
   .settings
 
