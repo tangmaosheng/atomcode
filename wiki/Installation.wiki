@@ -99,19 +99,19 @@ $config['enable_benchmark'] = FALSE;
 
   * 数据库配置
 
-    * 关闭数据库日志 *
+* 关闭数据库日志 *
 
 {{{
 $config['database']['log'] = FALSE;
 }}}
 
-    * 关闭调试模式 *
+* 关闭调试模式 *
 
 {{{
 $config['database']['db_debug'] = FALSE;
 }}}
 
-    * 关闭查询记录功能 *
+* 关闭查询记录功能 *
 
 {{{
 $config['database']['save_queries'] = FALSE;
