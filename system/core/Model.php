@@ -1,5 +1,6 @@
 <?php
-if (!defined('BASE_PATH')) exit('No direct script access allowed');
+if (!defined('BASE_PATH'))
+	exit('No direct script access allowed');
 
 /**
  * Model Class
@@ -18,19 +19,7 @@ if (!defined('BASE_PATH')) exit('No direct script access allowed');
  * 在 master/slave 中，我们仅支持单个主库，如果有多个从库，则模型会随机选择一个作为当前查询库。<br>
  * 多库模式中，需要自己切换数据库，否则查询时会自动连接默认数据库。
  * 
- * 调用技巧：<br>
- * 1. 链式调用<br>
- *   如果比较简单的条件下，可以调用：<code>$this->select('id')->where('dateline >', $date)->get();</code>来实现
  * 
- * 2. 条件语句保持<br>
- *   在有分页的时候，我们希望取完结果后，还要取全部结果的条数，但是此时还要再写一遍 where 语句，所以我们可以通过一个较简单
- *   的方法来实现，即调用：
- *   <code>
- *   $this->keepWhere(); // 可以让下一次查询不会清空 where 语句
- *   $list = $this->get($page_size, $offset); // 使用 where 做第一次查询
- *   $rows = $this->countAllResults(); // 使用 where 做第二次查询，本次查询会清空 where 条件
- *   </code>
- *   
  * @package		AtomCode
  * @subpackage	core
  * @author		Eachcan<eachcan@gmail.com>
@@ -41,46 +30,112 @@ if (!defined('BASE_PATH')) exit('No direct script access allowed');
  */
 abstract class Model {
 
-	/**
-	 * Db配置
-	 * @var array
-	 */
-	protected $dbs = array();
-
-	protected $dbConfig = array();
-
-	protected $multiple, $default;
-
 	protected $nosql = FALSE;
 
 	/**
-	 * @var DbActiveRecord 当前数据库查询所用的对象
+	 * 全局配置
+	 * @var array
 	 */
-	protected $currentDb;
+	protected static $dbConfigs, $dbLinks = array(), $dbDrivers = array(), $multiple, $default;
 
-	protected $currentGroup, $currentMode, $currentSelectMode;
+	protected static $sqls, $queryTime;
+
+	/**
+	 * @var Array
+	 */
+	protected $myConfig = array();
+
+	/**
+	 * @var Resource
+	 */
+	protected $myLink = NULL;
+
+	/**
+	 * @var DbDriver
+	 */
+	protected $myDriver = NULL;
+
+	/**
+	 * @var DbData
+	 */
+	protected $dbData;
+
+	private $doNotExecuteReset = FALSE;
+
+	protected $table, $database, $lastSql;
 
 	protected static $instance;
 
-	protected $defaultTable, $fromTable;
-	/**
-	 * Constructor
-	 *
-	 * @access public
-	 */
 	public function __construct() {
-		$this->currentGroup = '';
-		$this->currentMode = '';
-		$this->currentSelectMode = '';
-		
-		
-		$this->dbConfig = load_config('database');
-		$this->parseConfig();
-		$this->defaultTable = strtolower(substr(get_class($this), 0, -5));
-		if (!$this->nosql) {
-			$this->autoSelectDb();
+		$this->init();
+		log_message("Model Class Initialized", "debug");
+	}
+
+	/**
+	 * 初始化运行环境
+	 */
+	protected function init() {
+		// Do not use database
+		if ($this->nosql) {
+			return;
 		}
-		log_message('debug', "Model Class Initialized");
+		
+		// Read Database Configures
+		if (!isset(self::$dbConfigs)) {
+			self::$dbConfigs = load_config('database');
+			self::$multiple = self::$dbConfigs['multiple'];
+			self::$default = self::$dbConfigs['default'];
+		}
+		
+		// Set Current Model configure
+		if (!$this->myConfig) {
+			if (!self::$multiple) {
+				$this->myConfig = & self::$dbConfigs;
+			} else {
+				if ($this->database && array_key_exists($this->database, self::$dbConfigs['dbs'])) {
+					$this->myConfig = & self::$dbConfigs['dbs'][$this->database];
+				} else {
+					$this->myConfig = reset(self::$dbConfigs['dbs']);
+					$this->database = key(self::$dbConfigs['dbs']);
+				}
+			}
+		}
+		
+		// Current table name
+		$this->table || $this->table = $this->myConfig['table_prefix'] . strtolower(substr(get_class($this), 0, -5));
+		
+		if (!isset($this->myConfig['type']) || $this->myConfig['type'] == '') {
+			$this->myConfig['type'] = 'mysql';
+		} else {
+			$this->myConfig['type'] = strtolower($this->myConfig['type']);
+		}
+		
+		if (!$this->myDriver) {
+			if (!array_key_exists($this->myConfig['type'], self::$dbDrivers)) {
+				self::$dbDrivers[$this->myConfig['type']] = Db::loadDriver($this->myConfig['type']);
+			}
+			
+			$this->myDriver = self::$dbDrivers[$this->myConfig['type']];
+		}
+		$this->myDriver->setErrorHandler($this);
+		
+		if (!$this->myLink) {
+			if (self::$multiple) {
+				if (!array_key_exists($this->database, self::$dbLinks)) {
+					self::$dbLinks[$this->database] = $this->myDriver->connect($this->myConfig);
+				}
+				
+				$this->myLink = self::$dbLinks[$this->database];
+			} else {
+				if (!self::$dbLinks) {
+					self::$dbLinks = $this->myDriver->connect($this->myConfig);
+				}
+				
+				$this->myLink = self::$dbLinks;
+			}
+		}
+		
+		$this->reset();
 	}
 
 	/**
@@ -99,7 +154,7 @@ abstract class Model {
 		
 		return self::$instance[$class];
 	}
-	
+
 	/**
 	 * 取得当前模型实例
 	 * 
@@ -108,615 +163,355 @@ abstract class Model {
 	 * @see Model::getInstance()
 	 * @return Model
 	 */
-	public abstract static function &instance();
-
-	/**
-	 * 解析配置
-	 * 
-	 * @todo 暂时未考虑多库和Master/Slave模式，直接使用了单个数据库
-	 */
-	private function parseConfig() {
-		$this->multiple = isset($this->dbConfig['multiple']) ? $this->dbConfig['multiple'] : FALSE;
-		$this->default = isset($this->dbConfig['default']) ? $this->dbConfig['default'] : '';
+	public static function &instance() {
+		return self::getInstance(get_called_class());
 	}
 
-	/**
-	 * 魔术方法，用于调用驱动中的方法
-	 * 
-	 * @param $method
-	 * @param $args
-	 * @return mixed
-	 */
-	public function __call($method, $args) {
-		if (!$this->currentDb) {
-			$this->autoSelectDb();
-		}
-		
-		// @todo 将所有方法实现死调用，以便编辑器提示
-		if ($this->currentDb) {
-			return call_user_func_array(array(
-				$this->currentDb, $method
-			), $args);
-		}
-		
-		return null;
+	protected function getTable() {
+		return $this->table;
 	}
 
-	/**
-	 * 切换数据库
-	 * 
-	 * 仅在有多级数据库时有效，如果目标数据库为 master/slave 模式，仍然遵循自动选择的规则
-	 * 
-	 * @param string $db
-	 */
-	public function switchDb($db = '') {
-	
+	protected function getDatabaseName() {
+		return $this->myConfig['name'];
 	}
 
-	/**
-	 * 自动选择一个数据库服务器连接
-	 * 
-	 * 如果在 master/slave 模式下，自动选择一个从库并进行连接。主库或者非此模式则直接选择相应数据库
-	 * 连接即可。
-	 * 
-	 * @param string $select_mode 查询模式，可选值有：select, update(etc.. not select)
-	 */
-	private function autoSelectDb($select_mode = 'select') {
-		if (!$this->multiple) {
-			if ($this->dbConfig['mode'] == '' || $this->dbConfig['mode'] == 'none') {
-				$this->linkByConfig($this->dbConfig, 'default');
+	public function limit($limit, $offset = NULL) {
+		$this->dbData->limit = array('limit' => $limit, 'offset' => $offset);
+	}
+
+	public function select($columns, $escape = TRUE) {
+		$this->dbData->selects[] = array('col' => $columns, 'escape' => $escape);
+	}
+
+	public function join($table, $conditions, $join_type = 'inner', $escape = TRUE, $index_hint = NULL) {
+		$this->dbData->joins[] = array('table' => $table, 'cond' => $conditions, 'type' => $join_type, 'escape' => $escape, 'index_hint' => $index_hint);
+	}
+
+	public function where($key, $value = NULL, $escape = TRUE, $logic = 'and') {
+		if (is_string($key)) {
+			$this->dbData->wheres[strtoupper($logic)][] = array('key' => $key, 'value' => $value, 'escape' => $escape);
+		} else {
+			$k = key($key);
+			if (is_numeric($k)) {
+				$this->dbData->wheres[strtoupper($logic)] = $this->dbData->wheres[strtoupper($logic)] ? array_merge($this->dbData->wheres[strtoupper($logic)], $key) : $key;
+			} else {
+				$this->dbData->wheres[strtoupper($k)] = $this->dbData->wheres[strtoupper($k)] ? array_merge($this->dbData->wheres[strtoupper($k)], $key) : $key;
 			}
 		}
 	}
 
+	public function orWhere($where1, $where2) {
+		$this->dbData->wheres["OR"] = $this->dbData->wheres["OR"] ? array_merge($this->dbData->wheres["OR"], func_get_args()) : func_get_args();
+	}
+
+	public function andWhere($where1, $where2) {
+		$this->dbData->wheres["AND"] = $this->dbData->wheres["AND"] ? array_merge($this->dbData->wheres["AND"], func_get_args()) : func_get_args();
+	}
+
+	public function newWhere($key, $value = NULL, $escape = TRUE) {
+		return array('key' => $key, 'value' => $value, 'escape' => $escape);
+	}
+
+	public function prepareWhere($where_sql) {
+		$this->dbData->wheres['AND'][] = array('psql' => $where_sql, 'params' => array_slice(func_get_args(), 1));
+	}
+
+	public function startTransaction($option = NULL) {
+		return $this->myDriver->startTrans($option, $this->myLink);
+	}
+
+	public function commit($option = NULL) {
+		return $this->myDriver->commit($option, $this->myLink);
+	}
+
+	public function setAutoCommit($auto = TRUE) {
+		return $this->myDriver->setAutoCommit($auto, $this->myLink);
+	}
+
+	public function rollback($option = NULL) {
+		return $this->myDriver->rollback($option, $this->myLink);
+	}
+
+	public function groupBy($columns, $direction = '', $option = '') {
+		$this->dbData->groupBys[] = array('col' => $columns, 'direction' => $direction, 'option' => $option);
+	}
+
+	public function orderBy($columns, $direction = 'ASC') {
+		$this->dbData->orderBys[] = array('col' => $columns, 'direction' => $direction);
+	}
+
+	public function having($key, $value = NULL, $escape = TRUE, $logic = 'and') {
+		if (is_string($key)) {
+			$this->dbData->havings[strtoupper($logic)][] = array('key' => $key, 'value' => $value, 'escape' => $escape);
+		} else {
+			$k = key($key);
+			if (is_numeric($k)) {
+				$this->dbData->havings[strtoupper($logic)] = $this->dbData->havings[strtoupper($logic)] ? array_merge($this->dbData->havings[strtoupper($logic)], $key) : $key;
+			} else {
+				$this->dbData->havings[strtoupper($k)] = $this->dbData->havings[strtoupper($k)] ? array_merge($this->dbData->havings[strtoupper($k)], $key) : $key;
+			}
+		}
+		
+		return $this;
+	}
+
+	public function orHaving($where1, $where2) {
+		$this->dbData->havings["OR"] = $this->dbData->havings["OR"] ? array_merge($this->dbData->havings["OR"], func_get_args()) : func_get_args();
+	}
+
+	public function andHaving($where1, $where2) {
+		$this->dbData->havings["AND"] = $this->dbData->havings["AND"] ? array_merge($this->dbData->havings["AND"], func_get_args()) : func_get_args();
+	}
+
+	public function newHaving($key, $value = NULL, $escape = TRUE) {
+		return array('key' => $key, 'value' => $value, 'escape' => $escape);
+	}
+
+	public function prepareHaving($where_sql) {
+		$this->dbData->havings[] = array('sql' => $where_sql, 'params' => array_slice(func_get_args(), 1));
+	}
+
+	public function leftJoin($table, $conditions, $escape = TRUE, $index_hint = NULL) {
+		return $this->join($table, $conditions, 'LEFT', $escape, $index_hint);
+	}
+
+	public function rightJoin($table, $conditions, $escape = TRUE, $index_hint = NULL) {
+		return $this->join($table, $conditions, 'RIGHT', $escape, $index_hint);
+	}
+
+	public function straightJoin($table, $conditions, $escape = TRUE, $index_hint = NULL) {
+		return $this->join($table, $conditions, 'STRAIGHT_JOIN', $escape, $index_hint);
+	}
+
+	public function natureJoin($table, $direction = '', $index_hint = NULL) {
+		return $this->join($table, NULL, 'NATURAL' . ($direction ? ' ' . $direction : ''), NULL, $index_hint);
+	}
+
+	public function reset() {
+		unset($this->dbData);
+		$this->dbData = new DbData();
+		$this->dbData->table = $this->table;
+	}
+
+	public function from($table, $alias = NULL, $index_hint = NULL) {
+		$this->dbData->froms[] = array('table' => $table, 'alias' => $alias, 'index_hint' => $index_hint);
+	}
+
+	public function subFrom($sql, $alias = NULL, $exclude_self = FALSE, $index_hint = NULL) {
+		$this->dbData->subQueryNoTable = $exclude_self;
+		$this->dbData->froms[] = array('sql' => $sql, 'alias' => $alias, 'index_hint' => $index_hint);
+	}
+
+	public function subWhere($key, $sql) {
+		$this->dbData->wheres['AND'][] = array('key' => $key, 'sql' => $sql, 'escape' => FALSE);
+	}
+
+	public function subOrWhere($key, $sql) {
+		$this->dbData->wheres['OR'][] = array('key' => $key, 'sql' => $sql, 'escape' => FALSE);
+	}
+
+	public function newSubWhere($key, $sql = NULL) {
+		return array('key' => $key, 'sql' => $sql, 'escape' => FALSE);
+	}
+
 	/**
-	 * 按照配置进行连接数据库
 	 * 
-	 * 自动判断是否已连接相应的库，如果未连接，则会创建新的连接
-	 * @param array $config
+	 * 当用于插入语句时，可以插入一条或者多条
+	 * 用于更新语句时，则一次只能设置一条
+	 * @param mixed $key
+	 * @param mixed $value 如果key是一个字符串，则此处表示对应的值；如果key是一个数组，此处表示不会转义的字段列表
+	 * @param boolean $escape
 	 */
-	private function linkByConfig($config, $name) {
-		if (!isset($config['type']) or $config['type'] == '') {
-			$config['type'] = 'mysql';
-		}
+	public function set($key, $value = NULL, $escape = TRUE) {
+		if (is_array($key)) {
+			if (is_array(reset($key))) {
+				$this->dbData->msets['values'] = $key;
+				$this->dbData->msets['reserve_keys'] = $value;
+			} else {
+				foreach ($key as $k => $v) {
+					$this->set($k, $v, !in_array($k, $value));
+				}
+			}
 		
-		$db_driver = 'Db' . ucfirst(strtolower($config['type'])) . 'Driver';
-		if (!class_exists($db_driver)) {
-			require_once BASE_PATH . '/library/driver/db/' . $config['type'] . '/' . $db_driver . EXT;
-		}
-		
-		if (!$this->currentDb) {
-			$this->dbs[$name] = new $db_driver($config);
-			$this->currentDb = $this->dbs[$name];
+		} else {
+			$this->dbData->sets[] = array('key' => $key, 'value' => $value, 'escape' => $escape);
 		}
 	}
 
 	/**
-	 * 运行查询并取得查询结果
 	 * 
-	 * 取得的结果是一个二维数组，数组包括结果中每条记录和每条记录每个字段的值。<br>
-	 * 用法示例：
-	 * <code>
-	 * $result = $this->get();
-	 * // sql: select * from `table`;
-	 * // result: array(0 => array('id' => 1, ...), ...);
-	 * 
-	 * $result = $this->get(10);
-	 * // sql: select * from `table` limit 10
-	 * 
-	 * $result = $this->get(10, 100);
-	 * // sql: select * from `table` limit 100, 10
-	 * </code>
-	 * @param int $limit
-	 * @param int $offset
+	 * 如果插入时键重复则更新的列
+	 * @param mixed $key
+	 * @param mixed $value 如果key是一个字符串，则此处表示对应的值；如果key是一个数组，此处表示不会转义的字段列表
+	 * @param boolean $escape
 	 */
+	public function set2($key, $value = NULL, $escape = TRUE) {
+		if (is_array($key)) {
+			foreach ($key as $k => $v) {
+				$this->set2($k, $v, !in_array($k, $value));
+			}
+		} else {
+			$this->dbData->sets2[] = array('key' => $key, 'value' => $value, 'escape' => $escape);
+		}
+	}
+
 	public function get($limit = NULL, $offset = NULL) {
-		if (!$this->fromTable) {
-			$this->fromTable = $this->defaultTable;
-		}
-		$res = $this->currentDb->get($this->fromTable, $limit, $offset);
-		$this->fromTable = '';
-		return $res;
-	}
-
-	/**
-	 * 构造FROM语句
-	 * 
-	 * 如果要访问非本模型对应的表，则需要指定该表。注意：如果要 join 其他表，请使用 join 方法。
-	 * 
-	 * @param unknown_type $table
-	 */
-	public function from($table) {
-		$this->fromTable = $table;
-		$this->currentDb->from($table);
-		return $this;
-	}
-	
-	public function limit($limit, $offset='') {
-		$this->currentDb->limit($limit, $offset);
-		return $this;
-	}
-
-	/**
-	 * 构造  SELECT 语句
-	 * 
-	 * 指定要查询的字段名，可以以空格分隔原名与别名；也可以写几个字段的运算表达式。上述情况请将 $escape 参数置为
-	 * false
-	 * 
-	 * 示例：
-	 * <code>
-	 * $this->select('id, age');
-	 * $result = $this->get(10, 100);
-	 * // sql: select `id`, `age` from `table` limit 100, 10
-	 * </code>
-	 * @param string | array $select 要查询的字段名
-	 * @param null | boolean $escape 是否要转义
-	 */
-	public function select($select = '', $escape = null) {
-		$this->currentDb->select($select, $escape);
-		return $this;
-	}
-
-	/**
-	 * 构造 SELECT MAX() 语句
-	 * 
-	 * 结果类似于：<br>
-	 * select max("$select as $alias")
-	 * 
-	 * 示例：
-	 * <code>
-	 * $this->selectMax('age', 'max_age');
-	 * $result = $this->get(10, 100);
-	 * // sql: select max(`age`) as `max_age` from `table` limit 100, 10
-	 * </code>
-	 * 
-	 * @param string $select
-	 * @param string $alias
-	 */
-	public function selectMax($select = '', $alias = '') {
-		$this->currentDb->select_max($select, $alias);
-		return $this;
-	}
-
-	/**
-	 * 构造 SELECT MIN() 语句
-	 * 
-	 * 与 {@link Model::selectMax()} 相似
-	 * 
-	 * @see Model::selectMax()
-	 * @param string $select
-	 * @param string $alias
-	 */
-	public function selectMin($select = '', $alias = '') {
-		$this->currentDb->select_min($select, $alias);
-		return $this;
-	}
-
-	/**
-	 * 构造 SELECT AVG() 语句
-	 * 
-	 * 与 {@link Model::selectMax()} 相似
-	 * 
-	 * @see Model::selectMax()
-	 * @param string $select
-	 * @param string $alias
-	 */
-	public function selectAvg($select = '', $alias = '') {
-		$this->currentDb->select_avg($select, $alias);
-		return $this;
-	}
-
-	/**
-	 * 构造 SELECT SUM() 语句
-	 * 
-	 * 与 {@link Model::selectMax()} 相似
-	 * 
-	 * @see Model::selectMax()
-	 * @param string $select
-	 * @param string $alias
-	 */
-	public function selectSum($select = '', $alias = '') {
-		$this->currentDb->select_sum($select, $alias);
-		return $this;
-	}
-	
-	public function join($table, $cond, $type = '') {
-		$this->currentDb->join($table, $cond, $type);
-		return $this;
-	}
-	
-	public function leftJoin($table, $cond) {
-		$this->currentDb->join($table, $cond, 'LEFT');
-		return $this;
-	}
-	
-	public function rightJoin($table, $cond) {
-		$this->currentDb->join($table, $cond, 'RIGHT');
-		return $this;
-	}
-	
-	/**
-	 * 构造 WHERE 语句
-	 * 
-	 * 如果 WHERE 语句已存在，则以 AND 连接。<br>
-	 * 如果未指定第三个参数，参数名值均会被转义。参数名加上 ` ，而值会使用 {@link DbDriver::escape()} 进行处理。
-	 * 此函数的用法比较灵活，你可以以下 4 种方式之一来构造 WHERE 语句：
-	 * 1. 简单名值对：
-	 *   <code>
-	 *   $goods_name = "fish's food";
-	 *   $this->where('goods_name', $goods_name);
-	 *   // where `goods_name` = 'fish\'s food';
-	 *   </code>
-	 * 2. 自定义比较条件：
-	 *   <code>
-	 *   $goods_name = "fish's food";
-	 *   $this->where('goods_name !=', $goods_name);
-	 *   // where `goods_name` != 'fish\'s food';
-	 *   </code>
-	 *   <b>注意：</b> 自定义比较符与字段名之前需要有一个空格，否则无法识别！
-	 * 3. 关联数组：
-	 *   <code>
-	 *   $this->where(array('age >' => 18, 'level <' => 10));
-	 *   // where `age` > 18 and level < 10;
-	 *   </code>
-	 * 4. 直接书写：<br>
-	 *   这种写法更灵活，便于处理较为复杂的查询
-	 *   <code>
-	 *   $this->where('id !=', 100);
-	 *   $this->where('(catid = 10 or catid = 11) and pub = 1 or pub = 2 or (pub = 3 and sword != \'test\'');
-	 *   // where id != 100 and ((catid = 10 or catid = 11) and pub = 1 or pub = 2 or (pub = 3 and sword != 'test'));
-	 *   </code>
-	 * @param string | array $key
-	 * @param null | string $value
-	 * @param boolean $escape
-	 */
-	public function where($key, $value = NULL, $escape = TRUE) {
-		$this->currentDb->where($key, $value, $escape);
-		return $this;
-	}
-
-	/**
-	 * 构造 WHERE .. OR 语句
-	 * 
-	 * 用法同 {@link Model::where()}, 只是与之前语句使用 OR 进行连接
-	 * 
-	 * @see Model::where()
-	 * @param string | array $key
-	 * @param null | string $value
-	 * @param boolean $escape
-	 */
-	public function orWhere($key, $value = NULL, $escape = TRUE) {
-		$this->currentDb->or_where($key, $value, $escape);
-		return $this;
-	}
-
-	/**
-	 * 构造 WHERE .. IN () 语句
-	 * 
-	 * 用法同 {@link Model::where()}中的第一种情况，只能使用简单的模式。同样，如果有其他的 WHERE 语句，
-	 * 则会用 AND 连接
-	 * 
-	 * @see Model::where()
-	 * @param string $key
-	 * @param array $values
-	 */
-	public function whereIn($key = NULL, $values = NULL) {
-		$this->currentDb->where_in($key, $values);
-		return $this;
-	}
-
-	/**
-	 * 构造 WHERE .. OR .. IN () 语句
-	 * 
-	 * 用法同{@link Model::whereIn()}，区别在于与之前语句使用 OR 连接
-	 * 
-	 * @see Model::where()
-	 * @param string $key
-	 * @param array $values
-	 */
-	public function orWhereIn($key = NULL, $values = NULL) {
-		$this->currentDb->where_in($key, $values);
-		return $this;
-	}
-
-	/**
-	 * 构造 WHERE .. NOT IN () 语句
-	 * 
-	 * 用法同{@link Model::whereIn()}
-	 * 
-	 * @see Model::where()
-	 * @param string $key
-	 * @param array $values
-	 */
-	public function whereNotIn($key = NULL, $values = NULL) {
-		$this->currentDb->where_not_in($key, $values);
-		return $this;
-	}
-
-	/**
-	 * 构造 WHERE .. OR .. NOT IN () 语句
-	 * 
-	 * 用法同{@link Model::whereIn()}，区别在于与之前语句使用 OR 连接
-	 * 
-	 * @see Model::where()
-	 * @param string $key
-	 * @param array $values
-	 */
-	public function orWhereNotIn($key = NULL, $values = NULL) {
-		$this->currentDb->or_where_not_in($key, $values);
-		return $this;
-	}
-
-	/**
-	 * 构造 WHERE field LIKE '%$match%' 语句
-	 * 
-	 * 仍然是 WHERE 语句的一种，不需要在 $match 中写 %， 不支持自定义通配符，要想自定义则需要
-	 * 直接使用 {@link Model::where()} 语句。
-	 * 
-	 * @see Model::where()
-	 * @param string $field 字段名
-	 * @param string $match 要匹配的内容
-	 * @param string $side 在哪边加 % ，可选的值有： left, right, both
-	 */
-	public function like($field, $match = '', $side = 'both') {
-		$this->currentDb->like($field, $match, $side);
-		return $this;
-	}
-
-	/**
-	 * 构造 WHERE field NOT LIKE '%$match%' 语句
-	 * 
-	 * 与 {@link Model::like()} 类似。
-	 * 
-	 * @see Model::where()
-	 * @see Model::like()
-	 * @param string $field 字段名
-	 * @param string $match 要匹配的内容
-	 * @param string $side 在哪边加 % ，可选的值有： left, right, both
-	 */
-	public function notLike($field, $match = '', $side = 'both') {
-		$this->currentDb->not_like($field, $match, $side);
-		return $this;
-	}
-
-	/**
-	 * 构造 WHERE field NOT LIKE '%$match%' 语句
-	 * 
-	 * 与 {@link Model::like()} 类似，不同的是与之前语句相连需要
-	 * 
-	 * @see Model::where()
-	 * @see Model::like()
-	 * @param string $field 字段名
-	 * @param string $match 要匹配的内容
-	 * @param string $side 在哪边加 % ，可选的值有： left, right, both
-	 */
-	public function orLike($field, $match = '', $side = 'both') {
-		$this->currentDb->or_like($field, $match, $side);
-		return $this;
-	}
-
-	/**
-	 * 构造 WHERE .. OR field NOT LIKE '%$match%' 语句
-	 * 
-	 * 与 {@link Model::orLike()} 类似。
-	 * 
-	 * @param string $field
-	 * @param string $match
-	 * @param string $side
-	 */
-	public function orNotLike($field, $match = '', $side = 'both') {
-		$this->currentDb->or_not_like($field, $match, $side);
-		return $this;
-	}
-
-	/**
-	 * 构造 GROUP BY 语句
-	 * 
-	 * 可以直接写 SQL 语句中的 GROUP BY 部分， 如果有多个，直接使用逗号（,）分隔
-	 * 
-	 * @param string $by
-	 */
-	public function groupBy($by) {
-		$this->currentDb->group_by($by);
-		return $this;
-	}
-
-	/**
-	 * 构造 HAVING 语句
-	 * 
-	 * 跟 {@link Model::where()} 语句相似，用于 GROUP BY 语句执行之后。支持的
-	 * 特性有：
-	 * 1. 简单的名值对
-	 * 2. 传入一个数组包含多个条件
-	 * 
-	 * @param string | array $by
-	 * @param string $value
-	 */
-	public function having($key, $value = '', $escape = TRUE) {
-		$this->currentDb->having($key, $value, $escape);
-		return $this;
-	}
-
-	/**
-	 * 构造 HAVING .. OR .. 语句
-	 * 
-	 * 跟 {@link Model::having()} 语句类似.
-	 * 
-	 * @param string | array $key
-	 * @param string $value
-	 * @param boolean $escape
-	 */
-	public function orHaving($key, $value = '', $escape = TRUE) {
-		$this->currentDb->or_having($key, $value, $escape);
-		return $this;
-	}
-
-	/**
-	 * 生成 ORDER BY 语句
-	 * 
-	 * 如果有多个，则直接写SQL语句中 ORDER BY 部分，用逗号（,）隔开即可。
-	 * 
-	 * @param string $orderby
-	 * @param string $direction ASC | ESC | RANDOM
-	 */
-	public function orderBy($orderby, $direction = '') {
-		$this->currentDb->order_by($orderby, $direction);
-		return $this;
-	}
-
-	/**
-	 * 查询记录总条数，一般用于分页程序
-	 * 
-	 * 生成 select count(*) num 语句，但会忽略 select, limit, order by,
-	 * group by, having这方面的设置 
-	 * @param string $table 表名，默认为当前表
-	 */
-	public function countAllResults($table = '') {
-		if (!$table) {
-			$table = $this->fromTable;
-		}
-		if (!$table) {
-			$table = $this->defaultTable;
-		}
-
-		$rows = $this->currentDb->count_all_results($table);
-		$this->fromTable = '';
-		return $rows;
-	}
-
-	/**
-	 * 按照条件查询结果集
-	 * 
-	 * 本函数相当于
-	 * <code>
-	 * $this->where($where);
-	 * return $this->get($limit, $offset);
-	 * </code>
-	 * @param string $where
-	 * @param integer $limit
-	 * @param integer $offset
-	 */
-	public function getWhere($where = null, $limit = null, $offset = null) {
-		if (!$this->fromTable) {
-			$this->fromTable = $this->defaultTable;
-		}
-		$res = $this->currentDb->getWhere($this->fromTable, $where, $limit, $offset);
-		$this->fromTable = '';
-		return $res;
-	}
-
-	/**
-	 * 清空表
-	 * 
-	 * 生成的SQL语句类似于:
-	 * TRUNCATE TABLE `$table`
-	 * 
-	 * @param string $table
-	 */
-	public function emptyTable($table = '') {
-		return $this->currentDb->empty_table($table);
-	}
-
-	/**
-	 * 对数据集合赋值
-	 * 
-	 * @param string $key
-	 * @param string $value
-	 * @param boolean $escape 此参数如果为 False，则不会将 $value 两边加单引号，里面的内容也不会被转义
-	 */
-	public function set($key, $value = '', $escape = TRUE) {
-		$this->currentDb->set($key, $value, $escape);
-		return $this;
-	}
-	
-	/**
-	 * 插入数据
-	 * 
-	 * 生成 INSERT 语句
-	 * @param array | object $set
-	 */
-	public function insert($set = null) {
-		if (!$this->fromTable) {
-			$this->fromTable = $this->defaultTable;
-		}
-		$res = $this->currentDb->insert($this->fromTable, $set);
-		$this->fromTable = '';
-		return $res;
-	}
-
-	/**
-	 * 更新数据
-	 * 
-	 * 生成 UPDATE 语句，数据集、where语句、limit都可以提前设置，此处传递为空，或者以相应的形式传入
-	 * @param array | object $set
-	 * @param array | string $where
-	 * @param integer $limit
-	 */
-	public function update($set = NULL, $where = NULL, $limit = NULL) {
-		if (!$this->fromTable) {
-			$this->fromTable = $this->defaultTable;
+		if ($limit || $offset)
+			$this->limit($limit, $offset);
+		
+		$this->dbData->queryType = "select";
+		
+		if ($this->dbData->subQueryNoTable) {
+			$this->dbData->table = $this->getTable();
 		}
 		
-		$res = $this->currentDb->update($this->fromTable, $set, $where, $limit);
-		$this->fromTable = '';
-		return $res;
+		return $this->__getResult();
 	}
 
-	/**
-	 * 删除数据
-	 * 
-	 * 生成 DELETE 语句，where语句、limit都可以提前设置，此处传递为空，或者以相应的形式传入
-	 * @param array | string $where
-	 * @param integer $limit
-	 * @param boolean $reset_data 是否重置条件
-	 */
-	public function delete($where = '', $limit = NULL, $reset_data = TRUE) {
-		if (!$this->fromTable) {
-			$this->fromTable = $this->defaultTable;
+	public function update($set = NULL) {
+		if ($set) {
+			$this->set($set);
 		}
 		
-		$res = $this->currentDb->delete($this->fromTable, $where, $limit, $reset_data);
-		$this->fromTable = '';
-		return $res;
+		$this->dbData->queryType = "update";
+		
+		return $this->__getResult();
 	}
-	
-	/**
-	 * 保持 where 语句，在执行查询时不被清除
-	 * 
-	 * @param integer $keep 保持的次数，目前限制为 1
-	 */
-	public function keepWhere($keep = 1) {
-		return $this->currentDb->keep_where($keep);
+
+	public function replace($set = NULL) {
+		if ($set) {
+			$this->set($set);
+		}
+		
+		$this->dbData->queryType = "replace";
+		
+		return $this->__getResult();
 	}
-	
-	/**
-	 * 上次查询语句
-	 * 
-	 * @return string
-	 */
-	public function lastQuery() {
-		return $this->currentDb->last_query();
+
+	public function replaceSelect($sql) {
+		$this->showError(0, "Not support replace ... select");
+		return ;
+		$this->dbData->queryType = "replaceSelect";
+		$this->dbData->selectSql = $sql;
+		
+		return $this->__getResult();
 	}
-	
-	/**
-	 * 总查询数据库次数
-	 * 
-	 * @return integer
-	 */
-	public function queryCount() {
-		return $this->currentDb->total_queries();
+
+	public function delete($table_list = array()) {
+		$this->dbData->queryType = "delete";
+		$this->dbData->deleteTables = $table_list;
+		return $this->__getResult();
 	}
-	
-	/**
-	 * 取得所有的查询语句
-	 * 
-	 * @return array
-	 */
-	public function getAllQueries() {
-		return $this->currentDb->all_queries();
+
+	public function insert($set = NULL, $set2 = NULL) {
+		if ($set)
+			$this->set($set);
+		if ($set2)
+			$this->set2($set2);
+		
+		$this->dbData->queryType = "insert";
+		
+		return $this->__getResult();
+	}
+
+	public function insertSelect($sql, $set2 = NULL) {
+		$this->showError(0, "Not support insert ... select");
+		return ;
+		if ($set2)
+			$this->set2($set2);
+		
+		$this->dbData->queryType = "insertSelect";
+		$this->dbData->selectSql = $sql;
+		
+		return $this->__getResult();
+	}
+
+	public function countAllResults() {
+		$this->keep();
+		$limit = $this->dbData->limit;
+		$select = $this->dbData->selects;
+		unset($this->dbData->limit, $this->dbData->selects);
+		$this->select('count(1) num');
+		$result = $this->__getResult();
+		$this->dbData->limit = $limit;
+		$this->dbData->selects = $select;
+		return $result[0]['num'];
+	}
+
+	public function keep($do_not_execute_reset = TRUE) {
+		$this->doNotExecuteReset = $do_not_execute_reset;
+	}
+
+	public function getByPage($page, $page_size) {
+		$this->setOption(DbMysqlDriver::SQL_CALC_FOUND_ROWS);
+		$offset = ($page - 1) * $page_size;
+		$result1 = $this->get($page_size, $offset);
+		
+		$total = $this->myDriver->foundRows($this->myLink);
+		$pageinfo = array('total' => $total, 'page' => $page, 'page_size' => $page_size, 'page_count' => ceil($total / $page_size));
+		return array('result' => $result1, 'page' => $pageinfo);
+	}
+
+	public function showError($errno, $error, $sql = NULL) {
+		if (!TEST_MODE && !$this->myConfig['show_error']) {
+			return;
+		}
+		
+		$error_obj = Error::instance();
+		$title = "DB Query Error";
+		$msg = array();
+		if ($sql)
+			$msg[] = 'SQL: ' . $this->lastSql;
+		$msg[] = 'ERRNO: ' . $errno;
+		$msg[] = 'ERROR: ' . $error;
+		$error_obj->show_error($msg, $title, $this->myConfig);
+	}
+
+	public function setOption($options) {
+		$this->dbData->options[] = $options;
+	}
+
+	public function getSql() {
+		return $this->myDriver->getSql($this->dbData);
+	}
+
+	public function query($sql) {
+		$this->lastSql = $sql;
+		
+		if ($this->myConfig['save_queries']) {
+			$time_start = microtime(TRUE);
+		}
+		
+		if (TEST_MODE || $this->myConfig['show_error']) {
+			$this->myDriver->setErrorHandler($this);
+		}
+		
+		$result = $this->myDriver->query($sql, $this->myLink);
+		if ($this->myConfig['save_queries']) {
+			self::$sqls[] = $sql;
+			self::$queryTime[] = microtime(TRUE) - $time_start;
+		}
+		
+		return $this->myDriver->wrapResult($result);
+	}
+
+	private function __getResult() {
+		$result = $this->query($this->getSql());
+		
+		if ($this->doNotExecuteReset) {
+			$this->doNotExecuteReset = FALSE;
+		} else {
+			$this->reset();
+		}
+		
+		return $result;
+	}
+
+	public function setIndexHint($index) {
+		$this->dbData->index_hint = $index;
+	}
+
+	public function alias($alias) {
+		$this->dbData->alias = $alias;
 	}
 }
-// END Model Class
-
-/* End of file Model.php */
-/* Location: ./system/core/Model.php */

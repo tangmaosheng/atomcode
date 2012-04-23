@@ -33,14 +33,9 @@ class HtmlRender extends Render {
 		}
 	}
 
-	public function getContents($view = null) {
+	public function getContents() {
 		if (!$this->isGot) {
-			if ($view) {
-				$this->prepare($view->view);
-				extract($view->values);
-			} else {
-				extract($this->values);
-			}
+			extract($this->values);
 			
 			ob_start();
 			include $this->cache_file;
@@ -64,16 +59,16 @@ class HtmlRender extends Render {
 	 * 为模板变量预先赋值
 	 */
 	private function _preAssign() {
-		global $RTR;
+		global $RTR, $__CLASS, $__DIR, $__METHOD;
 		if (!array_key_exists('get', $this->values))	$this->values['get'] = $_GET;
 		if (!array_key_exists('post', $this->values))	$this->values['post'] = $_POST;
-		if (!array_key_exists('class', $this->values))	$this->values['class'] = strtolower(substr($RTR->fetch_class(), 0, -strlen(Router::controller_suffix)));
-		if (!array_key_exists('method', $this->values))	$this->values['method'] = $RTR->fetch_method();
+		if (!array_key_exists('class', $this->values))	$this->values['class'] = strtolower(substr($__CLASS, 0, -strlen(Uri::controller_suffix)));
+		if (!array_key_exists('method', $this->values))	$this->values['method'] = $__METHOD;
 		if (!array_key_exists('session', $this->values))	$this->values['session'] = $_SESSION;
 		if (!array_key_exists('request', $this->values))	$this->values['request'] = array_merge($_GET, $_POST);
 		if (!array_key_exists('base_url', $this->values))	$this->values['base_url'] = get_config('base_url');
 		if (!array_key_exists('charset', $this->values))	$this->values['charset'] = get_config('charset');
-		if (!array_key_exists('directory', $this->values))	$this->values['directory'] = strtolower(substr($RTR->fetch_directory(), 0, -1));
+		if (!array_key_exists('directory', $this->values))	$this->values['directory'] = $__DIR;
 		if (!array_key_exists('current_act', $this->values))	$this->values['current_act'] = current_act();
 		if (!array_key_exists('current_url', $this->values))	$this->values['current_url'] = current_url();
 	}
@@ -117,8 +112,8 @@ class HtmlRender extends Render {
 		$this->isGot = FALSE;
 	}
 
-	public function display($view = null) {
-		echo $this->getContents($view);
+	public function display() {
+		echo $this->getContents();
 	}
 }
 // END HtmlRender CLASS

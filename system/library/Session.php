@@ -18,6 +18,10 @@ class Session {
 	private static $started = FALSE;
 	private static $allowedDriver = array('cookie', 'database', 'memcache');
 	
+    public static function isStarted() {
+        return self::$started;
+    }
+    
 	/**
 	 * @return SessionDriver
 	 */
@@ -25,7 +29,7 @@ class Session {
 		if (self::$started) {
 			return self::$instance;
 		}
-				
+		
 		if (in_array(get_config('sess_driver'), self::$allowedDriver)) {
 			switch (get_config('sess_driver')) {
 				case 'cookie':
@@ -41,6 +45,7 @@ class Session {
 			
 			session_set_save_handler(array(&self::$instance, 'open'), array(&self::$instance, 'close'), array(&self::$instance, 'read'), array(&self::$instance, 'write'), array(&self::$instance, 'destroy'), array(&self::$instance, 'gc'));
 		}
+		session_name('ATOMCODEUID');
 		session_start();
 		self::$started = TRUE;
 		
@@ -148,6 +153,10 @@ class SessionCookieDriver implements SessionDriver {
 	public function gc($max_life_time) {
 		
 	}
+	
+	public function __destruct() {
+		Model::closeAllLinks();
+	}
 }
 
 /**
@@ -218,6 +227,10 @@ class SessionDatabaseDriver implements SessionDriver {
 		$session = SessionModel::instance();
 		return $session->gc($max_life_time);
 	}
+	
+	public function __destruct() {
+		Model::closeAllLinks();
+	}
 }
 
 /**
@@ -278,5 +291,9 @@ class SessionMemcacheDriver implements SessionDriver {
 	 */
 	public function gc($max_life_time) {
 		
+	}
+	
+	public function __destruct() {
+		Model::closeAllLinks();
 	}
 }

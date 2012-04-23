@@ -56,9 +56,8 @@ class Input {
 	 * @access	public
 	 */
 	private function __construct() {
-		log_message('debug', "Input Class Initialized");
+		log_message("Input Class Initialized", 'debug');
 		
-		$this->magicQuotes = get_magic_quotes_gpc();
 		$this->useXssClean = (get_config('global_xss_filtering') === TRUE) ? TRUE : FALSE;
 		$this->cleanGlobals();
 	}
@@ -86,7 +85,7 @@ class Input {
 		// Would kind of be "wrong" to unset any of these GLOBALS
 		$protected = array(
 			'_SERVER', '_GET', '_POST', '_FILES', '_REQUEST', '_SESSION', '_ENV', 'GLOBALS', 'HTTP_RAW_POST_DATA', 
-			'BM', 'HOOK', 'URI', 'RTR', 'OUTPUT', 'INPUT', '_LANG',
+			'BM', 'URI', 'INPUT', '_LANG',
 			'__CLASS', '__METHOD', '__CTRL', '__VIEW', '__RENDER'
 		);
 		
@@ -122,7 +121,7 @@ class Input {
 		unset($_COOKIE['$Domain']);
 		$_COOKIE = $this->cleanInputData($_COOKIE);
 		
-		log_message('debug', "Global POST and COOKIE data sanitized");
+		log_message("Global POST and COOKIE data sanitized", 'debug');
 	}
 
 	/**
@@ -146,13 +145,6 @@ class Input {
 			return $new_array;
 		}
 		
-		$added = $this->magicQuotes;
-		// We strip slashes if magic quotes is on to keep things consistent
-		if ($this->magicQuotes && $this->useXssClean) {
-			$str = stripslashes($str);
-			$added = FALSE;
-		}
-		
 		// Should we filter the input data?
 		if ($this->useXssClean === TRUE) {
 			$str = $this->xssClean($str);
@@ -163,11 +155,6 @@ class Input {
 			$str = str_replace(array(
 				"\r\n", "\r"
 			), "\n", $str);
-		}
-	
-		// We add slashes at last
-		if (!$added) {
-			$str = trim(addslashes($str));
 		}
 		
 		return $str;
@@ -684,7 +671,7 @@ class Input {
 			}
 		}
 		
-		log_message('debug', "XSS Filtering completed");
+		log_message("XSS Filtering completed", 'debug');
 		return $str;
 	}
 

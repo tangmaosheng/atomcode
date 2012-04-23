@@ -1,5 +1,6 @@
 <?php
-if (!defined('BASE_PATH')) exit('No direct script access allowed');
+if (!defined('BASE_PATH'))
+	exit('No direct script access allowed');
 
 /**
  * Error Class
@@ -31,7 +32,7 @@ class Error {
 
 	private static $instance;
 
-	private $levels = array(E_ERROR => 'Error', E_WARNING => 'Warning', E_PARSE => 'Parsing Error', E_NOTICE => 'Notice', E_CORE_ERROR => 'Core Error', E_CORE_WARNING => 'Core Warning', E_COMPILE_ERROR => 'Compile Error', E_COMPILE_WARNING => 'Compile Warning', E_USER_ERROR => 'User Error', E_USER_WARNING => 'User Warning', E_USER_NOTICE => 'User Notice', E_STRICT => 'Runtime Notice');
+	private $levels = array(E_DEPRECATED => 'Error', E_ERROR => 'Error', E_WARNING => 'Warning', E_PARSE => 'Parsing Error', E_NOTICE => 'Notice', E_CORE_ERROR => 'Core Error', E_CORE_WARNING => 'Core Warning', E_COMPILE_ERROR => 'Compile Error', E_COMPILE_WARNING => 'Compile Warning', E_USER_ERROR => 'User Error', E_USER_WARNING => 'User Warning', E_USER_NOTICE => 'User Notice', E_STRICT => 'Runtime Notice');
 
 	/**
 	 * error: E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR
@@ -44,11 +45,7 @@ class Error {
 	/**
 	 * Constructor
 	 */
-	private function __construct() {
-		$this->ob_level = ob_get_level();
-	
-		// Note:  Do not log messages from this constructor.
-	}
+	private function __construct() {}
 
 	/**
 	 * 
@@ -59,6 +56,7 @@ class Error {
 			self::$instance = new Error();
 		}
 		
+		self::$instance->ob_level = ob_get_level();
 		return self::$instance;
 	}
 
@@ -78,7 +76,7 @@ class Error {
 		$levelName = (!isset($this->levelName[$severity])) ? 'all' : $this->levelName[$severity];
 		$severity = (!isset($this->levels[$severity])) ? $severity : $this->levels[$severity];
 		
-		log_message($levelName, 'Severity: ' . $severity . '  --> ' . $message . ' ' . $filepath . ' ' . $line, TRUE);
+		log_message($severity . ' - ' . $message . ' ' . $filepath . ' ' . $line, $levelName, TRUE);
 	}
 
 	// --------------------------------------------------------------------
@@ -91,18 +89,14 @@ class Error {
 	 * @param	string
 	 * @return	string
 	 */
-	public function show_404($page = '', $log_error = TRUE) {
+	public function show_404($page = '') {
 		$heading = "404 Page Not Found";
-		$message = "The page you requested was not found.";
-		if (defined('STDIN')) {
-			$this->show_std_error($heading, $message);
-		}
-		// By default we log this, but allow a dev to skip it
-		if ($log_error) {
-			log_message('error', '404 Page Not Found --> ' . $page);
+		$message = "The page you requested was not found.<br />$page";
+		if (IS_CLI) {
+			$this->show_std_error($message, $heading);
 		}
 		
-		echo $this->show_error($heading, $message, 'error_404', 404);
+		echo $this->show_error($message, $heading);
 		exit();
 	}
 
@@ -122,17 +116,19 @@ class Error {
 	 * @param	string	the template name
 	 * @return	string
 	 */
-	public function show_error($heading, $message, $template = 'error_general', $status_code = 500) {
-		if (defined('STDIN')) {
-			$this->show_std_error($heading, $message);
+	public function show_error($message, $title = '', $config = array(), $template = 'error') {
+		$title || $title = "Error Reporting";
+		
+		if (IS_CLI) {
+			$this->show_std_error($message, $title, $config);
 		}
-		set_status_header($status_code);
 		
 		if (ob_get_level() > $this->ob_level + 1) {
 			ob_end_flush();
 		}
+		
 		ob_start();
-		include (APP_PATH . '/error/' . $template . '.php');
+		include (BASE_PATH . '/error/' . $template . '.php');
 		$buffer = ob_get_contents();
 		ob_end_clean();
 		echo $buffer;
@@ -148,9 +144,9 @@ class Error {
 	 * @param	string	the error line number
 	 * @return	string
 	 */
-	public function show_php_error($severity, $message, $filepath, $line) {
-		if (defined('STDIN')) {
-			$this->show_std_error('PHP Error', "Severity:\t$severity\nMessage:\t$message\nFile:\t\t$filepath\nline:\t\t$line");
+	public function show_php_error($severity, $body, $filepath, $line) {
+		if (IS_CLI) {
+			$this->show_std_error('PHP Error', "Severity:\t$severity\nMessage:\t$body\nFile:\t\t$filepath\nline:\t\t$line");
 		}
 		$severity = (!isset($this->levels[$severity])) ? $severity : $this->levels[$severity];
 		
@@ -165,8 +161,14 @@ class Error {
 		if (ob_get_level() > $this->ob_level + 1) {
 			ob_end_flush();
 		}
+		
+		$title = "PHP $severity";
+		$message[] = $body;
+		$message[] = "File: " . $filepath;
+		$message[] = "Line: " . $line;
+		
 		ob_start();
-		include (APP_PATH . '/error/error_php.php');
+		include (BASE_PATH . '/error/error.php');
 		$buffer = ob_get_contents();
 		ob_end_clean();
 		echo $buffer;
@@ -190,24 +192,26 @@ class Error {
 			$trace[1]['line'] = $trace[0]['line'];
 			array_shift($trace);
 		}
+		$title = 'PHP Exception';
 		
-		if (defined('STDIN')) {
+		if (IS_CLI) {
 			$t = array();
 			$s = array();
 			foreach ($trace as $id => $trace1) {
 				$s[] = "Exception $id#:\n";
 				foreach ($trace1 as $k => $v) {
-					$s[] = "$k: $v\n";
+					$s[] = "$k: " . var_export($v, TRUE) . "\n";
 				}
 				
-				$t[] = implode("\n", $s);
+				$t[] = implode("", $s);
 			}
 			
-			$this->show_std_error('PHP Exception', implode("\n", $t));
+			$this->show_std_error(implode("\n", $t), $title);
 		}
 		
 		ob_start();
-		include (APP_PATH . '/error/error_debug.php');
+		$exception = $trace;
+		include (BASE_PATH . '/error/error.php');
 		$buffer = ob_get_contents();
 		ob_end_clean();
 		echo $buffer;
@@ -217,7 +221,7 @@ class Error {
 		}
 	}
 
-	public function show_std_error($heading, $message) {
+	private function show_std_error($message, $heading, $config = array()) {
 		if (is_array($message)) {
 			$msg = '';
 			foreach ($message as $k => $v) {
@@ -230,6 +234,25 @@ class Error {
 		} else {
 			echo "$heading\n$message\n";
 		}
+
+		if (!function_exists('__function_error_show_config_item_cli')) {
+			function __function_error_show_config_item_cli($config, $level = 0) {
+				foreach ($config as $key => $config2) {
+					if (is_array($config2)) {
+						echo "$key :" . PHP_EOL;
+						__function_error_show_config_item_cli($config2, $level + 1);
+					} else {
+						echo str_repeat(" ", $level * 4) . "$key: " . (is_bool($config2) ? ($config2 ? "TRUE" : "FALSE") : $config2) . PHP_EOL;
+					}
+				}
+			}
+		}
+		
+		if ($config && is_array($config)) {
+			echo PHP_EOL . "Configure:" . PHP_EOL;
+			__function_error_show_config_item_cli($config);
+		}
+		
 		exit();
 	}
 }
