@@ -4,13 +4,13 @@
  * 是否测试模式，控制错误输出和允许调试、测试、记录日志, 不定义则表示 TEST_MODEL 为 FALSE
  * @var Boolean
  */
-
-define("TEST_MODEL", TRUE);
+define("TEST_MODE", TRUE);
 /**
  * 文件本身 *必须
  * @var String
  */
 define("SELF", __FILE__);
+
 /**
  * 应用的路径 *必须
  * @var String
@@ -28,5 +28,4 @@ define('ENV', '');
  * @var String
  */
 define('RENDER', 'Html');
-
 require 'system/atomcode.php';

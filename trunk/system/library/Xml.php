@@ -116,7 +116,7 @@ class Xml {
 		$this->document = array();
 		$this->stack = array();
 		$this->parent = &$this->document;
-		return xml_parse($this->parser, $data, true) ? $this->document : NULL;
+		return xml_parse($this->parser, $data, true) ? $this->document : xml_error_string(xml_get_error_code($this->parser)) . " Line: " . xml_get_current_line_number($this->parser);
 	}
 
 	/**

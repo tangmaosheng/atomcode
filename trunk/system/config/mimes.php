@@ -3,8 +3,7 @@
 | -------------------------------------------------------------------
 | MIME TYPES
 | -------------------------------------------------------------------
-| This file contains an array of mime types.  It is used by the
-| Upload class to help identify allowed file types.
+| 可根据扩展名输出HTTP头部, 影响 Content-Type 字段
 |
 */
 

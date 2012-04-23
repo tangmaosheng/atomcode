@@ -90,7 +90,6 @@ class Http {
 	public function get($url) {
 		curl_setopt($this->handle, CURLOPT_HTTPGET, TRUE);
 		curl_setopt($this->handle, CURLOPT_URL, $url);
-		
 		return curl_exec($this->handle);
 	}
 	

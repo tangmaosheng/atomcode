@@ -1,5 +1,6 @@
 <?php
-if (!defined('BASE_PATH')) exit('No direct script access allowed');
+if (!defined('BASE_PATH'))
+	exit('No direct script access allowed');
 
 define('RAND_NUM', 1);
 define('RAND_ALPHA', 2);
@@ -23,15 +24,15 @@ define('RAND_SYMBOL', 8);
 /**
  * 将当前 PHP 版本与给出的版本进行比较
  * 
- * 目前主要用于测试 PHP 版本是否大于5.0，因为本框架仅支持 PHP5 以上版本
+ * 目前主要用于测试 PHP 版本是否大于5.3，因为本框架仅支持 PHP5.3 以上版本
  *
  * @access	public
  * @param	string
  * @return	bool	TRUE 表示当前版本比给出的版本大
  */
-function is_php($version = '5.0.0') {
+function is_php($version = '5.3.0') {
 	static $_is_php = array();
-	$version = (string) $version;
+	$version = (string)$version;
 	
 	if (!isset($_is_php[$version])) {
 		$_is_php[$version] = (version_compare(PHP_VERSION, $version) < 0) ? FALSE : TRUE;
@@ -82,18 +83,30 @@ function is_really_writable($file) {
  * 在 AtomCode 中，你不需要使用 include 或 require 来包含文件，框架将帮助你自动将文件包含进来。但是要求你按照一定的规范将文件放在特定的目录下。<br>
  * 目前支持的类后缀有： Model, Helper, Block, Render，不在此后缀列表中的将会以通用类的方式查找（目录为：library）。<br>
  * 
+ * 如果使用了命名空间，则命名空间将作为子目录包含于文件路径中。<br />
+ * 比如定义： <br />
+ * namespace my;<br />
+ * class Simple extends \Singleton {} <br />
+ * 
+ * 文件存放路径则应该是 APP_PATH/library/my/Simple.php
+ * 
  * 查找的顺序是首先尝试加载应用自己定义的类，如果不存在，再去查找系统目录下的相应文件。所以，如果要覆盖系统类的实现，只需要建立一个同名类即可。
  * 
  * @param String $name 类名，有后缀的需要包含后缀
  * @param String $dir 指定目录，仅可指定子目录，框架会自动附加上应用或系统的路径
  * @return boolean 类是否加载成功或者已存在
  */
-function autoload($name, $dir = '') {
-	static $autoload_dirs = array('Model' => 'model', 'Helper' => 'helper', 'Block' => 'block', 'Render' => 'render');
+function load_class($name, $dir = '') {
+	static $autoload_dirs = array('Model' => 'model', 'Helper' => 'helper', 'Block' => 'block', 'Render' => 'render', 'Driver' => 'library');
 	
 	if (class_exists($name, FALSE)) {
 		return true;
 	}
+	
+	$t = explode('\\', $name);
+	$class_name = array_pop($t);
+	$dir_name = implode(DIRECTORY_SEPARATOR, $t);
+	$sub_dir = '';
 	
 	if ($dir) {
 		$guess_dir = $dir;
@@ -101,14 +114,23 @@ function autoload($name, $dir = '') {
 		$guess_dir = 'library';
 		foreach ($autoload_dirs as $suffix => $dir) {
 			if (substr($name, -strlen($suffix)) == $suffix) {
+				if ($suffix == 'Driver') {
+					preg_match_all('/([A-Z][a-z0-9_]*)/', $name, $matches);
+					$sub_dir = DIRECTORY_SEPARATOR . strtolower(implode(DIRECTORY_SEPARATOR, array_slice($matches[0], 0, -2)));
+				}
 				$guess_dir = $dir;
 				break;
 			}
 		}
 	}
 	
+	$dir_name && $guess_dir .= DIRECTORY_SEPARATOR . $dir_name;
+	if ($sub_dir) {
+		$guess_dir .= DIRECTORY_SEPARATOR . 'driver' . $sub_dir;
+	}
+	
 	foreach (array(APP_PATH, BASE_PATH) as $path) {
-		$file_path = $path . '/' . $guess_dir . '/' . $name . '.php';
+		$file_path = $path . DIRECTORY_SEPARATOR . $guess_dir . DIRECTORY_SEPARATOR . $class_name . '.php';
 		if (!file_exists($file_path)) {
 			continue;
 		}
@@ -116,6 +138,8 @@ function autoload($name, $dir = '') {
 		require $file_path;
 		return class_exists($name, FALSE);
 	}
+	
+	return false;
 }
 
 /**
@@ -185,22 +209,22 @@ function load_config($name, $default = NULL) {
 /**
  * 错误日志接口
  * 
- * 此函数被用于快速记录错误信息，日志记录内容受限于配置 log_threshold, Configuration: {@example ../config/config.php 108 19}
- *  
+ * 此函数被用于快速记录错误信息，日志记录内容受限于配置 log_threshold, Configuration: {@example ../config/config.php 56 19}
+ * 
  * @access	public
  * @param enum{'error', 'debug', 'warning', 'notice'} $level 错误级别
  * @param string $message 错误信息
  * @param boolean $php_error 是否是 PHP 错误
  * @return	void
  */
-function log_message($level = 'error', $message, $php_error = FALSE) {
+function log_message($message, $level = 'error', $php_error = FALSE) {
 	$config = get_config();
 	if ($config['log_threshold'] == 0) {
 		return;
 	}
 	
 	$_log = & Log::instance();
-	$_log->write_log($level, $message, $php_error ? 'php' : 'log');
+	$_log->write($message, $level, $php_error ? 'php' : 'log');
 }
 
 /**
@@ -214,9 +238,9 @@ function log_message($level = 'error', $message, $php_error = FALSE) {
  * @access	public
  * @return	void
  */
-function show_error($message, $status_code = 500, $heading = 'An Error Was Encountered') {
+function show_error($message, $title = '', $config = array()) {
 	$_error = & Error::instance();
-	echo $_error->show_error($heading, $message, 'error_general', $status_code);
+	echo $_error->show_error($message, $title, $config);
 	exit();
 }
 
@@ -231,9 +255,9 @@ function show_error($message, $status_code = 500, $heading = 'An Error Was Encou
  * @access	public
  * @return	void
  */
-function show_404($page = '', $log_error = TRUE) {
+function show_404($page = '') {
 	$_error = & Error::instance();
-	$_error->show_404($page, $log_error);
+	$_error->show_404($page);
 	exit();
 }
 
@@ -248,12 +272,7 @@ function show_404($page = '', $log_error = TRUE) {
  * @return	void
  */
 function set_status_header($code = 200, $text = '') {
-	$stati = array(
-		200 => 'OK', 201 => 'Created', 202 => 'Accepted', 203 => 'Non-Authoritative Information', 204 => 'No Content', 205 => 'Reset Content', 206 => 'Partial Content', 
-		300 => 'Multiple Choices', 301 => 'Moved Permanently', 302 => 'Found', 304 => 'Not Modified', 305 => 'Use Proxy', 307 => 'Temporary Redirect', 
-		400 => 'Bad Request', 401 => 'Unauthorized', 403 => 'Forbidden', 404 => 'Not Found', 405 => 'Method Not Allowed', 406 => 'Not Acceptable', 407 => 'Proxy Authentication Required', 408 => 'Request Timeout', 409 => 'Conflict', 410 => 'Gone', 411 => 'Length Required', 412 => 'Precondition Failed', 413 => 'Request Entity Too Large', 414 => 'Request-URI Too Long', 415 => 'Unsupported Media Type', 416 => 'Requested Range Not Satisfiable', 417 => 'Expectation Failed', 
-		500 => 'Internal Server Error', 501 => 'Not Implemented', 502 => 'Bad Gateway', 503 => 'Service Unavailable', 504 => 'Gateway Timeout', 505 => 'HTTP Version Not Supported'
-	);
+	$stati = array(200 => 'OK', 201 => 'Created', 202 => 'Accepted', 203 => 'Non-Authoritative Information', 204 => 'No Content', 205 => 'Reset Content', 206 => 'Partial Content', 300 => 'Multiple Choices', 301 => 'Moved Permanently', 302 => 'Found', 304 => 'Not Modified', 305 => 'Use Proxy', 307 => 'Temporary Redirect', 400 => 'Bad Request', 401 => 'Unauthorized', 403 => 'Forbidden', 404 => 'Not Found', 405 => 'Method Not Allowed', 406 => 'Not Acceptable', 407 => 'Proxy Authentication Required', 408 => 'Request Timeout', 409 => 'Conflict', 410 => 'Gone', 411 => 'Length Required', 412 => 'Precondition Failed', 413 => 'Request Entity Too Large', 414 => 'Request-URI Too Long', 415 => 'Unsupported Media Type', 416 => 'Requested Range Not Satisfiable', 417 => 'Expectation Failed', 500 => 'Internal Server Error', 501 => 'Not Implemented', 502 => 'Bad Gateway', 503 => 'Service Unavailable', 504 => 'Gateway Timeout', 505 => 'HTTP Version Not Supported');
 	
 	if ($code == '' || !is_numeric($code)) {
 		show_error('Status codes must be numeric', 500);
@@ -756,12 +775,10 @@ function is_same_url($url1, $url2) {
  * @return string
  */
 function current_act() {
-	$RTR = & Router::instance();
-	$dir = $RTR->fetch_directory();
-	$class = strtolower(substr($RTR->fetch_class(), 0, -10));
-	$method = $RTR->fetch_method();
+	global $__DIR, $__CLASS, $__METHOD;
+	$class = strtolower(substr($__CLASS, 0, -10));
 	
-	return $dir . $class . '/' . $method;
+	return str_replace('\\', '/', $__DIR) . $class . '/' . $__METHOD;
 }
 
 /**
@@ -830,5 +847,31 @@ class ValidateException extends Exception {
 	public function getObject() {
 		return $this->object;
 	}
+}
 
+abstract class Singleton {
+
+	protected static $instances;
+
+	private final function __clone() {}
+
+	/**
+	 * @final
+	 * @return self
+	 */
+	public static function instance() {
+		return self::getInstance();
+	}
+
+	/**
+	 * @return self
+	 */
+	protected static final function getInstance() {
+		$class = get_called_class();
+		
+		if (!isset(self::$instances[$class])) {
+			self::$instances[$class] = new $class();
+		}
+		return self::$instances[$class];
+	}
 }

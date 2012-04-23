@@ -101,7 +101,20 @@ class Benchmark {
 		return microtime(true) - reset($this->marker);
 	}
 	
+	/**
+	 * 取得用户组和用户ID
+	 */
+	public function getUid() {
+		return getmygid() . ':' . getmyuid();
+	}
 	
+	/**
+	 * 取得运行模式
+	 * 
+	 */
+	public function getRunMode() {
+		return php_sapi_name();
+	}
 }
 // END Benchmark class
 
