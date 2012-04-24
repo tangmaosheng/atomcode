@@ -133,6 +133,8 @@ class Uri {
 	}
 	
 	public function parseUri() {
+		$this->segments = array();
+		
 		if (IS_CLI) {
 			return $this->setUri($this->detectCliUri());
 		}
