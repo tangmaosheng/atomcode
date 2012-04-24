@@ -471,7 +471,10 @@ abstract class Model {
 		$this->dbData->options[] = $options;
 	}
 
-	public function getSql() {
+	public function getSql($type = '') {
+		if ($type) {
+			$this->dbData->queryType = $type;
+		}
 		return $this->myDriver->getSql($this->dbData);
 	}
 
