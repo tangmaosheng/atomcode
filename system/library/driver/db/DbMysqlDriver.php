@@ -270,4 +270,8 @@ class DbMysqlDriver extends DbDriver {
 		
 		return '';
 	}
+	
+	public function close($link) {
+		return is_resource($link) ? mysql_close($link) : TRUE;
+	}
 }

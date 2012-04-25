@@ -503,6 +503,8 @@ abstract class DbDriver {
 		
 		return ' SET ' . $set_sqls;
 	}
+	
+	abstract public function close($link);
 }
 
 class DbHelper {

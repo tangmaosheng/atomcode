@@ -197,7 +197,8 @@ abstract class Model {
 			} else {
 				foreach ($key as $k => $v) {
 					$k = strtoupper($k);
-					if ($k == 'AND' || $k == 'OR') $this->dbData->wheres[$k] = $this->dbData->wheres[$k] ? array_merge($this->dbData->wheres[$k], $v) : $v;
+					if ($k == 'AND' || $k == 'OR')
+						$this->dbData->wheres[$k] = $this->dbData->wheres[$k] ? array_merge($this->dbData->wheres[$k], $v) : $v;
 				}
 			}
 		}
@@ -364,10 +365,6 @@ abstract class Model {
 		
 		$this->dbData->queryType = "select";
 		
-		if ($this->dbData->subQueryNoTable) {
-			$this->dbData->table = $this->getTable();
-		}
-		
 		return $this->__getResult();
 	}
 
@@ -393,7 +390,7 @@ abstract class Model {
 
 	public function replaceSelect($sql) {
 		$this->showError(0, "Not support replace ... select");
-		return ;
+		return;
 		$this->dbData->queryType = "replaceSelect";
 		$this->dbData->selectSql = $sql;
 		
@@ -419,7 +416,7 @@ abstract class Model {
 
 	public function insertSelect($sql, $set2 = NULL) {
 		$this->showError(0, "Not support insert ... select");
-		return ;
+		return;
 		if ($set2)
 			$this->set2($set2);
 		
@@ -478,6 +475,10 @@ abstract class Model {
 		if ($type) {
 			$this->dbData->queryType = $type;
 		}
+		
+		if (!$this->dbData->subQueryNoTable) {
+			$this->dbData->table = $this->getTable();
+		}
 		return $this->myDriver->getSql($this->dbData);
 	}
 
@@ -519,5 +520,32 @@ abstract class Model {
 
 	public function alias($alias) {
 		$this->dbData->alias = $alias;
+	}
+
+	public static function closeAllLinks() {
+		if (is_array(self::$dbLinks)) {
+			foreach (self::$dbLinks as $db => $link) {
+				self::$dbDrivers[self::$dbConfigs[$db]['type']]->close($link);
+				unset(self::$links[$db]);
+			}
+		} else {
+			self::$dbDrivers[self::$dbConfigs['type']]->close(self::$dbLinks);
+		}
+	}
+	
+	public function lastQuery() {
+		return $this->lastSql;
+	}
+	
+	public function getAllQueries() {
+		return self::$sqls;
+	}
+	
+	public function getAllQueryTime() {
+		return self::$queryTime;
+	}
+	
+	public function queryCount() {
+		return count(self::$sqls);
 	}
 }
