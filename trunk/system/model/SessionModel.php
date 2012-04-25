@@ -27,7 +27,9 @@ class SessionModel extends Model {
 	public function __construct() {
 		parent::__construct();
 		$this->config = get_config('session');
-		$this->config['table'] && is_string($this->config['table']) && $this->table = $this->config['table'];
+		if ($this->config['table'] && is_string($this->config['table'])) {
+			$this->table = $this->config['table'];
+		}
 	}
 	
 	/**
