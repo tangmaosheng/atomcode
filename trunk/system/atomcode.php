@@ -182,6 +182,14 @@ if ($segments) {
 	}
 }
 
+if (!$__CLASS) {
+	$__CLASS = 'Index';
+}
+
+if (!$__METHOD) {
+	$__METHOD = 'index';
+}
+
 if ($segments) {
 	show_404();
 }
