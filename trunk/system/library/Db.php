@@ -43,7 +43,7 @@ abstract class DbDriver {
 	 * 根据设定生成SQL语句
 	 * @param DbData $data
 	 */
-	abstract public function getSql($data);
+	abstract public function getSql($data, $link);
 
 	/**
 	 * 查询SQL语句并返回结果
