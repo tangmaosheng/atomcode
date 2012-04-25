@@ -108,6 +108,7 @@ $config['log_date_format'] = 'Y-m-d H:i:s';
 */
 $config['session']['driver'] = 'database';
 $config['session']['match_ip'] = FALSE;
+$config['session']['table'] = '';
 $config['session']['expiration'] = 7200;
 // memcache configuration
 $config['session']['mem_host'] = '';
