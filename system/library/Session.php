@@ -30,8 +30,10 @@ class Session {
 			return self::$instance;
 		}
 		
-		if (in_array(get_config('sess_driver'), self::$allowedDriver)) {
-			switch (get_config('sess_driver')) {
+		$config = get_config('session');
+		
+		if (in_array($config['driver'], self::$allowedDriver)) {
+			switch ($config['driver']) {
 				case 'cookie':
 					self::$instance = & SessionCookieDriver::instance();
 					break;

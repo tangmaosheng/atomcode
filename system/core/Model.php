@@ -195,7 +195,10 @@ abstract class Model {
 			if (is_numeric($k)) {
 				$this->dbData->wheres[strtoupper($logic)] = $this->dbData->wheres[strtoupper($logic)] ? array_merge($this->dbData->wheres[strtoupper($logic)], $key) : $key;
 			} else {
-				$this->dbData->wheres[strtoupper($k)] = $this->dbData->wheres[strtoupper($k)] ? array_merge($this->dbData->wheres[strtoupper($k)], $key) : $key;
+				foreach ($key as $k => $v) {
+					$k = strtoupper($k);
+					if ($k == 'AND' || $k == 'OR') $this->dbData->wheres[$k] = $this->dbData->wheres[$k] ? array_merge($this->dbData->wheres[$k], $v) : $v;
+				}
 			}
 		}
 	}
@@ -329,7 +332,7 @@ abstract class Model {
 				$this->dbData->msets['reserve_keys'] = $value;
 			} else {
 				foreach ($key as $k => $v) {
-					$this->set($k, $v, !in_array($k, $value));
+					$this->set($k, $v, is_array($value) ? !in_array($k, $value) : TRUE);
 				}
 			}
 		

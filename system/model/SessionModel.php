@@ -15,11 +15,19 @@
  */
 class SessionModel extends Model {
 	private $exists = FALSE;
+	private $config;
+	
 	/**
 	 * @return SessionModel
 	 */
 	public static function &instance() {
 		return parent::getInstance(__CLASS__);
+	}
+	
+	public function __construct() {
+		parent::__construct();
+		$this->config = get_config('session');
+		$this->config['table'] && is_string($this->config['table']) && $this->table = $this->config['table'];
 	}
 	
 	/**
@@ -30,7 +38,7 @@ class SessionModel extends Model {
 	public function read($sess_id) {
 		$this->where('sessionid', $sess_id);
 		
-		if (get_config('sess_match_ip')) {
+		if ($this->config['match_ip']) {
 			$this->where('ip', get_ip(TRUE));
 		}
 		
@@ -82,9 +90,10 @@ class SessionModel extends Model {
 	 * @param integer $time 超时时间
 	 */
 	public function gc($time) {
-		if (get_config('sess_expiration')) {
-			$time = get_config('sess_expiration');
+		if ($this->config['expiration'] > 0) {
+			$time = $this->config['expiration'];
 		}
+		
 		$this->where('lastactivity <', TIMESTAMP - $time);
 		return $this->delete();
 	}
