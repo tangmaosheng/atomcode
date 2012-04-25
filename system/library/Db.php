@@ -224,14 +224,14 @@ abstract class DbDriver {
 
 	public function getWhereSql($data, $link) {
 		if ($data->wheres) {
-			return ' WHERE ' . $this->parseWhere($data->wheres, $link);
+			return ' WHERE ' . $this->parseWhere($data->wheres, '', $link);
 		}
 		return '';
 	}
 
 	public function getHavingSql($data, $link) {
 		if ($data->havings) {
-			return ' HAVING ' . $this->parseWhere($data->havings, $link);
+			return ' HAVING ' . $this->parseWhere($data->havings, '', $link);
 		}
 		return '';
 	}

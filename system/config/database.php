@@ -28,11 +28,11 @@ $config['database']['default'] = 'default';
  * Db mode, none: single db, master/slave
  */
 $config['database']['type'] = 'mysql';
-$config['database']['host'] = '192.168.213.20';
+$config['database']['host'] = 'localhost';
 $config['database']['port'] = '';
-$config['database']['user'] = 'zjs';
-$config['database']['pass'] = 'zjs';
-$config['database']['name'] = 'zjs_doc';
+$config['database']['user'] = 'root';
+$config['database']['pass'] = '';
+$config['database']['name'] = '';
 $config['database']['charset'] = 'utf8';
 $config['database']['table_prefix'] = '';
 $config['database']['pconnect'] = FALSE;

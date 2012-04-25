@@ -39,7 +39,6 @@ class SessionModel extends Model {
 	 */
 	public function read($sess_id) {
 		$this->where('sessionid', $sess_id);
-		
 		if ($this->config['match_ip']) {
 			$this->where('ip', get_ip(TRUE));
 		}

@@ -56,7 +56,10 @@ class Log extends Singleton {
 			return;
 		}
 		
-		$this->_log_path = get_config('log_path', APP_PATH . '/log/');
+		$this->_log_path = get_config('log_path');
+		if (!$this->_log_path) {
+			$this->_log_path = APP_PATH . '/log/';
+		}
 		
 		if (!is_dir($this->_log_path) || !is_really_writable($this->_log_path)) {
 			$this->_enabled = FALSE;

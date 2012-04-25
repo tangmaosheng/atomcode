@@ -453,6 +453,7 @@ abstract class Model {
 	}
 
 	public function showError($errno, $error, $sql = NULL) {
+		$this->logError("DB Query Error, [$errno] [$error] $sql");
 		if (!TEST_MODE && !$this->myConfig['show_error']) {
 			return;
 		}
@@ -465,6 +466,12 @@ abstract class Model {
 		$msg[] = 'ERRNO: ' . $errno;
 		$msg[] = 'ERROR: ' . $error;
 		$error_obj->show_error($msg, $title, $this->myConfig);
+	}
+	
+	private function logError($msg) {
+		if ($this->myConfig['log']) {
+			log_message($msg);
+		}
 	}
 
 	public function setOption($options) {

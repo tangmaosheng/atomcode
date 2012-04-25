@@ -241,7 +241,7 @@ class DbMysqlDriver extends DbDriver {
 	public function getUpdateSql($data, $link) {
 		$sql = "UPDATE";
 		$sql .= $this->getOptionSql($this->UPDATE_OPTION, $data->options);
-		$sql .= $this->protect_start . $data->table . $this->protect_end . ($data->alias ? ' AS ' . $this->protect_start . $data->alias . $this->protect_end : '');
+		$sql .= ' ' . $this->protect_start . $data->table . $this->protect_end . ($data->alias ? ' AS ' . $this->protect_start . $data->alias . $this->protect_end : '');
 		$sql .= $this->getUpdateItemSql($data, $link);
 		$sql .= $this->getWhereSql($data, $link);
 		$sql .= $this->getOrderbySql($data);
