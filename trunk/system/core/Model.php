@@ -479,7 +479,7 @@ abstract class Model {
 		if (!$this->dbData->subQueryNoTable) {
 			$this->dbData->table = $this->getTable();
 		}
-		return $this->myDriver->getSql($this->dbData);
+		return $this->myDriver->getSql($this->dbData, $this->myLink);
 	}
 
 	public function query($sql) {

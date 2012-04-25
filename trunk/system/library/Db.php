@@ -206,7 +206,7 @@ abstract class DbDriver {
 	 * array('table' => $table, 'cond' => $conditions, 'type' => $join_type, 'escape' => $escape, 'index_hint' => $index_hint)
 	 * @param DbData $data
 	 */
-	public function getJoinSql($data) {
+	public function getJoinSql($data, $link) {
 		$str = ' ';
 		if ($data->joins) {
 			foreach ($data->joins as $join) {
@@ -214,7 +214,7 @@ abstract class DbDriver {
 				if (strncmp('NATURAL', $join['type'], 7) === 0) {
 					$str .= $join['type'] . ' JOIN ' . $this->formatTable($join['table']) . $this->parseIndexHint($join['index_hint']);
 				} else {
-					$str .= $join['type'] . ' JOIN ' . $this->formatTable($join['table']) . $this->parseIndexHint($join['index_hint']) . ($join['cond'] ? ' ON ' . $this->parseWhere($join['cond']) : '');
+					$str .= $join['type'] . ' JOIN ' . $this->formatTable($join['table']) . $this->parseIndexHint($join['index_hint']) . ($join['cond'] ? ' ON ' . $this->parseWhere($join['cond'], '', $link) : '');
 				}
 			}
 		}
@@ -222,16 +222,16 @@ abstract class DbDriver {
 		return $str;
 	}
 
-	public function getWhereSql($data) {
+	public function getWhereSql($data, $link) {
 		if ($data->wheres) {
-			return ' WHERE ' . $this->parseWhere($data->wheres);
+			return ' WHERE ' . $this->parseWhere($data->wheres, $link);
 		}
 		return '';
 	}
 
-	public function getHavingSql($data) {
+	public function getHavingSql($data, $link) {
 		if ($data->havings) {
-			return ' HAVING ' . $this->parseWhere($data->havings);
+			return ' HAVING ' . $this->parseWhere($data->havings, $link);
 		}
 		return '';
 	}
@@ -243,7 +243,7 @@ abstract class DbDriver {
 	 * Enter description here ...
 	 * @param unknown_type $where
 	 */
-	public function parseWhere($where, $org_logic = '') {
+	public function parseWhere($where, $org_logic = '', $link) {
 		static $i = 1;
 		if (!$where)
 			return '';
@@ -260,18 +260,18 @@ abstract class DbDriver {
 					return $where['key'] . '(' . $where['sql'] . ')';
 				}
 			} else {
-				return $this->parseWhere($where['key']);
+				return $this->parseWhere($where['key'], $org_logic, $link);
 			}
 		} elseif (array_key_exists('value', $where)) {
 			if (is_string($where['key'])) {
 				if (($oper = $this->hasOperator($where['key'])) == '') {
-					return $where['key'] . '=' . $this->protectValue($where['value'], $where['escape']);
+					return $where['key'] . '=' . $this->protectValue($where['value'], $where['escape'], $link);
 				} else {
-					return $where['key'] . $this->protectValue($where['value'], $where['escape']);
+					return $where['key'] . $this->protectValue($where['value'], $where['escape'], $link);
 				}
 			} else {
 				$i++;
-				return $this->parseWhere($where['key']);
+				return $this->parseWhere($where['key'], $org_logic, $link);
 			}
 		} elseif (array_key_exists('params', $where)) {
 			$str = '';
@@ -294,7 +294,7 @@ abstract class DbDriver {
 		if ($where['AND']) {
 			foreach ($where['AND'] as $w) {
 				$i++;
-				$wheres[] = $this->parseWhere($w, 'AND');
+				$wheres[] = $this->parseWhere($w, 'AND', $link);
 			}
 			
 			$str .= ($str == '' ? '' : ' ' . $org_logic . ' ') . '(' . implode(' AND ', $wheres) . ')';
@@ -303,7 +303,7 @@ abstract class DbDriver {
 		$wheres = array();
 		if ($where['OR']) {
 			foreach ($where['OR'] as $w) {
-				$wheres[] = $this->parseWhere($w, 'AND');
+				$wheres[] = $this->parseWhere($w, 'AND', $link);
 			}
 			
 			$str .= ($str == '' ? '' : ' ' . $org_logic . ' ') . '(' . implode(' OR ', $wheres) . ')';
@@ -351,7 +351,7 @@ abstract class DbDriver {
 		return implode(',', $array);
 	}
 
-	protected function protectValue($str, $escape) {
+	protected function protectValue($str, $escape, $link = NULL) {
 		if (!$escape) {
 			return $str;
 		}
@@ -370,13 +370,13 @@ abstract class DbDriver {
 		if (is_array($str)) {
 			$s = array();
 			foreach ($str as $st) {
-				$s[] = $this->protectValue($str, $escape);
+				$s[] = $this->protectValue($str, $escape, $link);
 			}
 			
 			return implode(",", $s);
 		}
 		
-		return '"' . $str . '"';
+		return '"' . $this->escape($str, $link) . '"';
 	}
 
 	/**
@@ -452,7 +452,7 @@ abstract class DbDriver {
 	/**
 	 * @param DbData $data
 	 */
-	protected function getValuesSql($data) {
+	protected function getValuesSql($data, $link) {
 		$set_sqls = array();
 		$keys = array();
 		
@@ -460,7 +460,7 @@ abstract class DbDriver {
 			foreach ($data->msets['values'] as $set) {
 				$keys || $keys = array_keys($set);
 				foreach ($set as $k => $value) {
-					$set[$k] = $this->protectValue($value, !in_array($k, $data->msets['reserve_keys']));
+					$set[$k] = $this->protectValue($value, !in_array($k, $data->msets['reserve_keys']), $link);
 				}
 				
 				$set_sqls[] = '(' . implode(',', $set) . ')';
@@ -468,7 +468,7 @@ abstract class DbDriver {
 		} elseif ($data->sets) {
 			foreach ($data->sets as $set) {
 				$keys[] = $set['key'];
-				$vals[] = $this->protectValue($set['value'], $set['escape']);
+				$vals[] = $this->protectValue($set['value'], $set['escape'], $link);
 			}
 			$set_sqls[] = '(' . implode(',', $vals) . ')';
 		}
@@ -478,28 +478,28 @@ abstract class DbDriver {
 		return $sql;
 	}
 
-	protected function getValueSql($set) {
-		return '(' . $this->protectValue($set, TRUE) . ')';
+	protected function getValueSql($set, $link) {
+		return '(' . $this->protectValue($set, TRUE, $link) . ')';
 	}
 
-	protected function getDuplicateSql($data) {
+	protected function getDuplicateSql($data, $link) {
 		if ($data->sets2) {
-			$set_sqls = $this->getPairs($data->sets2);
+			$set_sqls = $this->getPairs($data->sets2, $link);
 		}
 		
 		return $set_sqls ? ' ON DUPLICATE KEY UPDATE ' . $set_sqls : '';
 	}
 
-	protected function getPairs($pairs) {
+	protected function getPairs($pairs, $link) {
 		foreach ($pairs as $set) {
-			$vals[] = $this->protectKey($set['key']) . '=' . $this->protectValue($set['value'], $set['escape']);
+			$vals[] = $this->protectKey($set['key']) . '=' . $this->protectValue($set['value'], $set['escape'], $link);
 		}
 		
 		return implode(',', $vals);
 	}
 
-	protected function getUpdateItemSql($data) {
-		$set_sqls = $this->getPairs($data->sets);
+	protected function getUpdateItemSql($data, $link) {
+		$set_sqls = $this->getPairs($data->sets, $link);
 		
 		return ' SET ' . $set_sqls;
 	}

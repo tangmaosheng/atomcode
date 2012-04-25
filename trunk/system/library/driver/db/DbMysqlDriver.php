@@ -59,11 +59,11 @@ class DbMysqlDriver extends DbDriver {
 	 * @see DbDriver::getSql()
 	 * @param DbData $data
 	 */
-	public function getSql($data) {
+	public function getSql($data, $link) {
 		$method = $data->queryType;
 		if ($method) {
 			$method = "get" . $method . "Sql";
-			if (method_exists($this, $method))return $this->$method($data);
+			if (method_exists($this, $method))return $this->$method($data, $link);
 		}
 		
 		return "";
@@ -177,15 +177,15 @@ class DbMysqlDriver extends DbDriver {
 	 * 
 	 * @param DbData $data
 	 */
-	public function getSelectSql($data) {
+	public function getSelectSql($data, $link) {
 		$sql = "SELECT";
 		$sql .= $this->getOptionSql($this->SELECT_OPTION, $data->options);
 		$sql .= $this->getColumnsSql($data->selects);
 		$sql .= $this->getFromSql($data);
-		$sql .= $this->getJoinSql($data);
-		$sql .= $this->getWhereSql($data);
+		$sql .= $this->getJoinSql($data, $link);
+		$sql .= $this->getWhereSql($data, $link);
 		$sql .= $this->getGroupbySql($data);
-		$sql .= $this->getHavingSql($data);
+		$sql .= $this->getHavingSql($data, $link);
 		$sql .= $this->getOrderbySql($data);
 		$sql .= $this->getLimitSql($data);
 		
@@ -196,13 +196,13 @@ class DbMysqlDriver extends DbDriver {
 	 * 
 	 * @param DbData $data
 	 */
-	public function getDeleteSql($data) {
+	public function getDeleteSql($data, $link) {
 		$sql = "DELETE";
 		$sql .= $this->getOptionSql($this->DELETE_OPTION, $data->options);
 		$sql .= $this->getDeletetableSql($data);
 		$sql .= $this->getFromSql($data);
-		$sql .= $this->getJoinSql($data);
-		$sql .= $this->getWhereSql($data);
+		$sql .= $this->getJoinSql($data, $link);
+		$sql .= $this->getWhereSql($data, $link);
 		if (!$data->joins) {
 			$sql .= $this->getOrderbySql($data);
 			$sql .= $this->getLimitSql($data);
@@ -215,12 +215,12 @@ class DbMysqlDriver extends DbDriver {
 	 * 
 	 * @param DbData $data
 	 */
-	public function getInsertSql($data) {
+	public function getInsertSql($data, $link) {
 		$sql = "INSERT";
 		$sql .= $this->getOptionSql($this->INSERT_OPTION, $data->options);
 		$sql .= $this->getIntoSql($data);
-		$sql .= $this->getValuesSql($data);
-		$sql .= $this->getDuplicateSql($data);
+		$sql .= $this->getValuesSql($data, $link);
+		$sql .= $this->getDuplicateSql($data, $link);
 		
 		return $sql;
 	}
@@ -229,21 +229,21 @@ class DbMysqlDriver extends DbDriver {
 	 * 
 	 * @param DbData $data
 	 */
-	public function getReplaceSql($data) {
+	public function getReplaceSql($data, $link) {
 		$sql = "REPLACE";
 		$sql .= $this->getOptionSql($this->REPLACE_OPTION, $data->options);
 		$sql .= $this->getIntoSql($data);
-		$sql .= $this->getValuesSql($data);
+		$sql .= $this->getValuesSql($data, $link);
 		
 		return $sql;
 	}
 	
-	public function getUpdateSql($data) {
+	public function getUpdateSql($data, $link) {
 		$sql = "UPDATE";
 		$sql .= $this->getOptionSql($this->UPDATE_OPTION, $data->options);
 		$sql .= $this->protect_start . $data->table . $this->protect_end . ($data->alias ? ' AS ' . $this->protect_start . $data->alias . $this->protect_end : '');
-		$sql .= $this->getUpdateItemSql($data);
-		$sql .= $this->getWhereSql($data);
+		$sql .= $this->getUpdateItemSql($data, $link);
+		$sql .= $this->getWhereSql($data, $link);
 		$sql .= $this->getOrderbySql($data);
 		$sql .= $this->getLimitSql($data);
 		
