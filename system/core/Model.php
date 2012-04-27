@@ -571,7 +571,7 @@ abstract class Model {
 	 */
 	public function like($key, $value, $side = 'BOTH', $escape = TRUE, $logic = 'AND') {
 		$side = strtoupper($side);
-		return $this->where($key, $this->myDriver->getLikeValue($value, $side, $escape, $this->myLink), FALSE, $logic);
+		return $this->where($key . ' LIKE', $this->myDriver->getLikeValue($value, $side, $escape, $this->myLink), FALSE, $logic);
 	}
 
 	/**
@@ -583,6 +583,30 @@ abstract class Model {
 	 */
 	public function newLike($key, $value, $side = 'BOTH', $escape = TRUE) {
 		return $this->newWhere($key . ' LIKE', $this->myDriver->getLikeValue($value, $side, $escape, $this->myLink), FALSE);
+	}
+
+	/**
+	 * 
+	 * @param STRING $key
+	 * @param STRING $value
+	 * @param STRING $side BOTH | LEFT | RIGHT
+	 * @param Bool $escape
+	 * @param enum $logic AND | OR
+	 */
+	public function notLike($key, $value, $side = 'BOTH', $escape = TRUE, $logic = 'AND') {
+		$side = strtoupper($side);
+		return $this->where($key . ' NOT LIKE', $this->myDriver->getLikeValue($value, $side, $escape, $this->myLink), FALSE, $logic);
+	}
+
+	/**
+	 * 
+	 * @param STRING $key
+	 * @param STRING $value
+	 * @param STRING $side BOTH | LEFT | RIGHT
+	 * @param Bool $escape
+	 */
+	public function newNotLike($key, $value, $side = 'BOTH', $escape = TRUE) {
+		return $this->newWhere($key . ' NOT LIKE', $this->myDriver->getLikeValue($value, $side, $escape, $this->myLink), FALSE);
 	}
 
 	public function whereIn($key, $value, $escape = TRUE, $logic = 'AND') {

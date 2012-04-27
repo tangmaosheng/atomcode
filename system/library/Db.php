@@ -268,11 +268,11 @@ abstract class DbDriver {
 					return $where['key'] . '=' . $this->protectValue($where['value'], $where['escape'], $link);
 				} else {
 					if ($oper == ' LIKE' || $oper == ' NOT LIKE') {
-						return $where['key'] . $this->protectValue($where['value'], FALSE, $link);
+						return $where['key'] . ' ' . $this->protectValue($where['value'], FALSE, $link);
 					} elseif ($oper == ' IN' || $oper == ' NOT IN'){
 						return $where['key'] . ' (' . $this->protectValue($where['value'], $where['escape'], $link) . ')';
 					} elseif ($oper == ' IS' || $oper == ' IS NOT'){
-						
+						return $where['key'] . ' ' . $this->protectValue($where['value'], $where['escape'], $link);
 					}
 					return $where['key'] . $this->protectValue($where['value'], $where['escape'], $link);
 				}
@@ -362,6 +362,7 @@ abstract class DbDriver {
 		if (is_numeric($str)) {
 			return $str;
 		}
+		
 		if (is_bool($str)) {
 			return intval($str);
 		}
@@ -373,7 +374,7 @@ abstract class DbDriver {
 		if (is_array($str)) {
 			$s = array();
 			foreach ($str as $st) {
-				$s[] = $this->protectValue($str, $escape, $link);
+				$s[] = $this->protectValue($st, $escape, $link);
 			}
 			
 			return implode(",", $s);
