@@ -330,7 +330,7 @@ abstract class Model {
 		if (is_array($key)) {
 			if (is_array(reset($key))) {
 				$this->dbData->msets['values'] = $key;
-				$this->dbData->msets['reserve_keys'] = $value;
+				$this->dbData->msets['reserve_keys'] = is_array($value) ? $value : array();
 			} else {
 				foreach ($key as $k => $v) {
 					$this->set($k, $v, is_array($value) ? !in_array($k, $value) : TRUE);
@@ -366,6 +366,11 @@ abstract class Model {
 		$this->dbData->queryType = "select";
 		
 		return $this->__getResult();
+	}
+
+	public function getOne() {
+		$result = $this->get(1);
+		return count($result) ? $result[0] : array();
 	}
 
 	public function update($set = NULL) {
@@ -467,7 +472,7 @@ abstract class Model {
 		$msg[] = 'ERROR: ' . $error;
 		$error_obj->show_error($msg, $title, $this->myConfig);
 	}
-	
+
 	private function logError($msg) {
 		if ($this->myConfig['log']) {
 			log_message($msg);
@@ -539,20 +544,76 @@ abstract class Model {
 			self::$dbDrivers[self::$dbConfigs['type']]->close(self::$dbLinks);
 		}
 	}
-	
+
 	public function lastQuery() {
 		return $this->lastSql;
 	}
-	
+
 	public function getAllQueries() {
 		return self::$sqls;
 	}
-	
+
 	public function getAllQueryTime() {
 		return self::$queryTime;
 	}
-	
+
 	public function queryCount() {
 		return count(self::$sqls);
+	}
+
+	/**
+	 * 
+	 * @param STRING $key
+	 * @param STRING $value
+	 * @param STRING $side BOTH | LEFT | RIGHT
+	 * @param Bool $escape
+	 * @param enum $logic AND | OR
+	 */
+	public function like($key, $value, $side = 'BOTH', $escape = TRUE, $logic = 'AND') {
+		$side = strtoupper($side);
+		return $this->where($key, $this->myDriver->getLikeValue($value, $side, $escape, $this->myLink), FALSE, $logic);
+	}
+
+	/**
+	 * 
+	 * @param STRING $key
+	 * @param STRING $value
+	 * @param STRING $side BOTH | LEFT | RIGHT
+	 * @param Bool $escape
+	 */
+	public function newLike($key, $value, $side = 'BOTH', $escape = TRUE) {
+		return $this->newWhere($key . ' LIKE', $this->myDriver->getLikeValue($value, $side, $escape, $this->myLink), FALSE);
+	}
+
+	public function whereIn($key, $value, $escape = TRUE, $logic = 'AND') {
+		if (is_string($value)) {
+			$value = explode(",", $value);
+		}
+		
+		return $this->where($key . ' IN', $value, $escape, $logic);
+	}
+
+	public function newWhereIn($key, $value, $escape = TRUE) {
+		if (is_string($value)) {
+			$value = explode(",", $value);
+		}
+		
+		return $this->newWhere($key . ' IN', $value, $escape);
+	}
+
+	public function whereNotIn($key, $value, $escape = TRUE, $logic = 'AND') {
+		if (is_string($value)) {
+			$value = explode(",", $value);
+		}
+		
+		return $this->where($key . ' NOT IN', $value, $escape, $logic);
+	}
+
+	public function newWhereNotIn($key, $value, $escape = TRUE) {
+		if (is_string($value)) {
+			$value = explode(",", $value);
+		}
+		
+		return $this->newWhere($key . ' NOT IN', $value, $escape);
 	}
 }

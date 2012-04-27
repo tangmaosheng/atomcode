@@ -267,6 +267,13 @@ abstract class DbDriver {
 				if (($oper = $this->hasOperator($where['key'])) == '') {
 					return $where['key'] . '=' . $this->protectValue($where['value'], $where['escape'], $link);
 				} else {
+					if ($oper == ' LIKE' || $oper == ' NOT LIKE') {
+						
+					} elseif ($oper == ' IN' || $oper == ' NOT IN'){
+						
+					} elseif ($oper == ' IS' || $oper == ' IS NOT'){
+						
+					}
 					return $where['key'] . $this->protectValue($where['value'], $where['escape'], $link);
 				}
 			} else {
@@ -328,7 +335,7 @@ abstract class DbDriver {
 	}
 
 	protected function hasOperator($str) {
-		$operators = array('=', '>', '<', '>=', '<=', '<>', '!=', '<=>', ' IS ', " LIKE", " IN");
+		$operators = array('=', '>', '<', '>=', '<=', '<>', '!=', '<=>', ' IS NOT', ' IS', " LIKE", " NOT LIKE", " IN", " NOT IN");
 		$str = strtoupper($str);
 		foreach ($operators as $oper) {
 			if (strpos($str, $oper)) {
@@ -352,10 +359,6 @@ abstract class DbDriver {
 	}
 
 	protected function protectValue($str, $escape, $link = NULL) {
-		if (!$escape) {
-			return $str;
-		}
-		
 		if (is_numeric($str)) {
 			return $str;
 		}
@@ -376,7 +379,7 @@ abstract class DbDriver {
 			return implode(",", $s);
 		}
 		
-		return '"' . $this->escape($str, $link) . '"';
+		return $escape ? '"' . $this->escape($str, $link) . '"' : '"' . $str . '"';
 	}
 
 	/**
@@ -505,6 +508,12 @@ abstract class DbDriver {
 	}
 	
 	abstract public function close($link);
+	
+	public function getLikeValue($value, $side, $escape, $link) {
+		$value = $escape ? $this->escape($value, $link) : $value;
+		$value = ($side == 'LEFT' || $side == 'BOTH' ? '%' : '') . $value . ($side == 'RIGHT' || $side == 'BOTH' ? '%' : '');
+		return $value;
+	}
 }
 
 class DbHelper {

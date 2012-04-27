@@ -20,7 +20,7 @@ $config['index_page'] = 'index.php?';
  * http://example.com/info/show.html?id=123
  */
 
-$config['url_suffix'] = '.html';
+$config['url_suffix'] = '';
 
 /*
  * Default language
@@ -37,7 +37,7 @@ $config['language'] = $config['default_language'];
  * 支持的语言列表
  * @var Array
  */
-$config['languages'] = array('cn');
+$config['languages'] = array('zh');
 
 /*
  * Language decision
@@ -47,8 +47,8 @@ $config['languages'] = array('cn');
  * and language, for example: /cn/article/show may behalf /cn/ArticleController or 
  * chinese language
  */
-$config['language_decision'] = 'segment';
-$config['language_decision_key'] = 0;
+$config['language_decision'] = '';
+$config['language_decision_key'] = '';
 
 /*
  * 默认输出编码
@@ -106,7 +106,7 @@ $config['log_date_format'] = 'Y-m-d H:i:s';
  * database driver need session table and SessionModel
  *
 */
-$config['session']['driver'] = 'database';
+$config['session']['driver'] = '';
 $config['session']['match_ip'] = FALSE;
 $config['session']['table'] = '';
 $config['session']['expiration'] = 7200;
