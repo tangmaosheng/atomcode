@@ -268,9 +268,9 @@ abstract class DbDriver {
 					return $where['key'] . '=' . $this->protectValue($where['value'], $where['escape'], $link);
 				} else {
 					if ($oper == ' LIKE' || $oper == ' NOT LIKE') {
-						
+						return $where['key'] . $this->protectValue($where['value'], FALSE, $link);
 					} elseif ($oper == ' IN' || $oper == ' NOT IN'){
-						
+						return $where['key'] . ' (' . $this->protectValue($where['value'], $where['escape'], $link) . ')';
 					} elseif ($oper == ' IS' || $oper == ' IS NOT'){
 						
 					}
@@ -366,8 +366,8 @@ abstract class DbDriver {
 			return intval($str);
 		}
 		
-		if (is_null($str)) {
-			return '';
+		if ($str === NULL) {
+			return 'NULL';
 		}
 		
 		if (is_array($str)) {

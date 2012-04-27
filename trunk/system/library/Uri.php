@@ -1,5 +1,6 @@
 <?php
-if (!defined('BASE_PATH')) exit('No direct script access allowed');
+if (!defined('BASE_PATH'))
+	exit('No direct script access allowed');
 
 /**
  * Uri Class
@@ -18,12 +19,13 @@ if (!defined('BASE_PATH')) exit('No direct script access allowed');
 class Uri {
 
 	private static $instance;
-	
-	public $segments;
-	
-	private $uri_string;
 
+	public $segments;
+
+	private $uri_string;
+	
 	const controller_suffix = 'Controller';
+
 	/**
 	 * Constructor
 	 *
@@ -47,7 +49,6 @@ class Uri {
 		
 		return self::$instance;
 	}
-
 
 	/**
 	 * Detects the URI
@@ -126,24 +127,24 @@ class Uri {
 		
 		return $uri;
 	}
-	
+
 	private function detectPathInfo() {
 		$path = isset($_SERVER['PATH_INFO']) ? $_SERVER['PATH_INFO'] : @getenv('PATH_INFO');
 		return ltrim($path, '/');
 	}
-	
+
 	public function parseUri() {
 		$this->segments = array();
 		
 		if (IS_CLI) {
-			return $this->setUri($this->detectCliUri());
+			$this->setUri($this->detectCliUri());
+		} else {
+			$uri = $this->detectUri();
+			if (!$uri) {
+				$uri = $this->detectPathInfo();
+			}
+			$this->setUri($uri);
 		}
-		
-		$uri = $this->detectUri();
-		if (!$uri) {
-			$uri = $this->detectPathInfo();
-		}
-		$this->setUri($uri);
 		
 		$segments = explode("/", $this->removeUrlSuffix($this->uri_string, get_config('url_suffix')));
 		foreach ($segments as $seg) {
@@ -152,16 +153,16 @@ class Uri {
 			}
 		}
 	}
-	
+
 	private function setUri($uri) {
 		$uri = preg_replace('/\.+/', '.', $uri);
 		$this->uri_string = $uri;
 	}
-	
+
 	public function getUriString() {
 		return $this->uri_string;
 	}
-	
+
 	public function segment($n) {
 		return $this->segments[$n];
 	}
