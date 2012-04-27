@@ -193,8 +193,8 @@ function load_config($name, $default = NULL) {
 	
 	$sub_dir = (defined('ENV') && ENV) ? ENV . '/' : '';
 	
-	foreach (array(APP_PATH, BASE_PATH) as $dir) {
-		$dir .= '/config/' . $sub_dir . $name . '.php';
+	foreach (array(APP_PATH . '/config/' . $sub_dir, BASE_PATH . '/config/') as $dir) {
+		$dir .=  $name . '.php';
 		
 		if (file_exists($dir)) {
 			include $dir;
@@ -781,6 +781,12 @@ function current_act() {
 	return str_replace('\\', '/', $__DIR) . $class . '/' . $__METHOD;
 }
 
+function set_style($style) {
+	$l = & get_config('view_path');
+	$style = preg_replace('/\W/', '', $style);
+	$l = $style ? $style : get_config('default_view_path');
+}
+
 /**
  * Render Class
  * 
@@ -859,14 +865,14 @@ abstract class Singleton {
 	 * @final
 	 * @return self
 	 */
-	public static function instance() {
+	public static function &instance() {
 		return self::getInstance();
 	}
 
 	/**
 	 * @return self
 	 */
-	protected static final function getInstance() {
+	protected static final function &getInstance() {
 		$class = get_called_class();
 		
 		if (!isset(self::$instances[$class])) {
