@@ -352,7 +352,7 @@ abstract class Model {
 	public function set2($key, $value = NULL, $escape = TRUE) {
 		if (is_array($key)) {
 			foreach ($key as $k => $v) {
-				$this->set2($k, $v, !in_array($k, $value));
+				$this->set2($k, $v, is_array($value) ? !in_array($k, $value) : TRUE);
 			}
 		} else {
 			$this->dbData->sets2[] = array('key' => $key, 'value' => $value, 'escape' => $escape);
