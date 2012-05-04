@@ -1,6 +1,5 @@
 <?php
-if (!defined('BASE_PATH'))
-	exit('No direct script access allowed');
+if (!defined('BASE_PATH')) exit('No direct script access allowed');
 
 /**
  * Controller Class
@@ -20,10 +19,13 @@ if (!defined('BASE_PATH'))
  * @filesource
  */
 class Controller {
+
 	private static $instance;
+
 	private $values;
 
 	private $config;
+
 	/**
 	 * Constructor
 	 */
@@ -45,7 +47,7 @@ class Controller {
 	public static function &instance() {
 		return self::$instance;
 	}
-	
+
 	/**
 	 * 为模板变量赋值
 	 * 
@@ -54,14 +56,14 @@ class Controller {
 	 * @param String $name
 	 * @param String $value
 	 */
-	public function _assign($name, $value='') {
+	public function _assign($name, $value = '') {
 		if (is_array($name)) {
 			$this->values = array_merge($this->values, $name);
 		} else {
 			$this->values[$name] = $value;
 		}
 	}
-	
+
 	/**
 	 * 是否为POST类型
 	 * 
@@ -70,7 +72,7 @@ class Controller {
 	protected function isPost() {
 		return strtolower($_SERVER['REQUEST_METHOD']) == 'post';
 	}
-	
+
 	/**
 	 * 是否是Ajax调用
 	 * 
@@ -80,7 +82,7 @@ class Controller {
 	protected function isAjax() {
 		return $_SERVER['HTTP_X_REQUESTED_WITH'] == 'XMLHttpRequest' || $_GET['ajax'] || $_POST['ajax'];
 	}
-	
+
 	/**
 	 * 最终输出
 	 * 
@@ -100,6 +102,29 @@ class Controller {
 			return $r;
 		} else {
 			return array($view_name, $this->values);
+		}
+	}
+
+	protected function startTask($task, $instance_count = 1) {
+		$task = base64_encode($task);
+		if (!file_exists(APP_PATH . '/cache/task')) mkdir(APP_PATH . '/cache/task', 0777, TRUE);
+		
+		while ($instance_count--) {
+			$file = APP_PATH . '/cache/task/.task_' . $task . '.' . $instance_count;
+			$this->task = fopen($file, 'w+');
+			if (flock($this->task, LOCK_EX | LOCK_NB)) {
+				return TRUE;
+			} else {
+				fclose($this->task);
+			}
+		}
+		
+		return false;
+	}
+
+	protected function endTask() {
+		if (is_resource($this->task)) {
+			fclose($this->task);
 		}
 	}
 }
