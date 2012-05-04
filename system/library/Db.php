@@ -267,11 +267,7 @@ abstract class DbDriver {
 				if (($oper = $this->hasOperator($where['key'])) == '') {
 					return $where['key'] . '=' . $this->protectValue($where['value'], $where['escape'], $link);
 				} else {
-					if ($oper == ' LIKE' || $oper == ' NOT LIKE') {
-						return $where['key'] . ' ' . $this->protectValue($where['value'], FALSE, $link);
-					} elseif ($oper == ' IN' || $oper == ' NOT IN'){
-						return $where['key'] . ' (' . $this->protectValue($where['value'], $where['escape'], $link) . ')';
-					} elseif ($oper == ' IS' || $oper == ' IS NOT'){
+					if ($oper == ' LIKE' || $oper == ' NOT LIKE' || $oper == ' IS' || $oper == ' IS NOT' || $oper == ' IN' || $oper == ' NOT IN') {
 						return $where['key'] . ' ' . $this->protectValue($where['value'], $where['escape'], $link);
 					}
 					return $where['key'] . $this->protectValue($where['value'], $where['escape'], $link);
@@ -377,7 +373,7 @@ abstract class DbDriver {
 				$s[] = $this->protectValue($st, $escape, $link);
 			}
 			
-			return implode(",", $s);
+			return ' (' .  implode(",", $s) . ')';
 		}
 		
 		return $escape ? '"' . $this->escape($str, $link) . '"' : '"' . $str . '"';
