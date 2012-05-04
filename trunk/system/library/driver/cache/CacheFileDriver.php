@@ -77,6 +77,6 @@ class CacheFileDriver implements CacheDriver {
 	}
 
 	public function setDir($path) {
-		$this->dir = rtrim($path, ' /\\');
+		$this->dir = rtrim($path, ' /\\') . DIRECTORY_SEPARATOR;
 	}
 }
