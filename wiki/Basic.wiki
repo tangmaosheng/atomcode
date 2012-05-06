@@ -220,3 +220,9 @@ application/view/default/detail.tpl
 <h1>{$article.title}</h1>
 <p>{$article.content}</p>
 }}}
+
+== Bingo ==
+
+现在你访问： http://localhost/atomcode/article/lists 然后点击其中的链接，你会发现这个小程序已经完成了。
+
+怎么样？就算没有其他的教程，是不是仍然可以轻松写出程序来？相信你，根据上述示例你可以学到简单的数据库访问方法、调用模型和块的方法、URL与控制器的关系、视图与控制器交互数据的方法。有了这些，做出更复杂的程序也不会太难了。
