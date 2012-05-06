@@ -23,7 +23,7 @@ application/log
 
 框架运行至少需要一个配置文件：config.php ，你可以将 `system/config/config.php` 复制到 `application/config/config.php`
 
-详细配置信息请参考 [configure 配置选项]
+详细配置信息请参考 [Configure 配置选项]
 
 *配置 Web Server*
 
