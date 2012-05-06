@@ -1,8 +1,14 @@
 #labels Featured
 =欢迎使用 AtomCode= 
 
-Let's write less, do more.
-Let's write clean code.
-Let's write security code.
+欢迎使用 AtomCode。AtomCode是一个PHP开发框架，最初是从CodeIgniter框架获得灵感并在最近被重新开发。
+
+AtomCode是一个基于PHP 5.3 运行的开发框架。支持PHP5.3的众多特性。也让开发时非常便捷。
+
+这并不是一个适合于大型项目的框架，当然如果用它来组织多个项目也是一个好的选择。
+
+这也不是一个像 CakePHP 或者其他同类框架一样包含众多特性和极其强大的功能，它唯一的特点是简单，一个可以比 CodeIgniter 更简单的框架。
+
+更多的特性及使用介绍请继续阅读 [Featured]
 
 <g:plusone size="medium"></g:plusone>
