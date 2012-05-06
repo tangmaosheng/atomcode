@@ -2,7 +2,6 @@
   * 概述
     * [Featured 特性]
     * [License 许可协议]
-    * [About 关于AtomCode]
     * [Required 服务器要求]
     * [Installation 如何安装]
     * [UrlScheme URL规则]
