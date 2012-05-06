@@ -1,5 +1,3 @@
-# this page introduce all the basic knowledge to users.
-
 = 如何入门 =
 
 要使用AtomCode进行开发，请先跟随教程开发出第一个简单程序，在此过程中对框架的工作原理进行理解。
@@ -9,6 +7,36 @@
 
 = 基本环境 =
 
+== 检出代码 ==
+
 在我们进行程序开发前，您需要首先使用 SVN 工具，将代码检出：
 <code language="shell">
 svn checkout http://atomcode.googlecode.com/svn/trunk/ atomcode</code>
+
+进入 atomcode 目录后，您将会看到2个目录和1个文件：
+
+https://lh5.googleusercontent.com/-7s6ZpEiapNQ/T6aTSe_yHYI/AAAAAAAAAG0/ZKeet7QjB3I/s0-d/1.png
+
+AtomCode 框架的内容就存入在 system 目录中，而您即将写的程序将全部位于 application 中。用户访问所有需要PHP执行的内容都需要通过 index.php
+
+== 目录含义 ==
+
+{{{
+application/
+   block # 块
+   cache # 缓存目录，请给 0777 权限
+   config #配置文件
+   controller # 控制器文件
+   helper # 辅助类
+   language # 语言目录
+   library # 用户及第三方类库
+   log # 日志目录，请给 0777 权限
+   model # 模型
+   view # 模板文件，即视图
+}}}
+
+== 初始配置 ==
+
+下面我们开始进行初始配置：
+
+复制 system/config/config.php 到 application/config/config.php，然后
