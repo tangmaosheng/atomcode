@@ -63,18 +63,6 @@ $config['index_page'] = '';
 
 会生成： `http://www.example.com/welcome/index?id=1`。
 
-当然，这样格式URL的生成会受下面一个配置的影响：
-
-{{{
-$config['uri_protocol']	= 'AUTO';
-}}}
-
-此选项可选的值有：
-
-|| 值 || URL形态 ||
-|| QUERY_STRING || http://hostname/dir[/entry.php]?dir=dir&class=class.. ||
-|| REQUEST_URI ||  http://hostname/dir[/entry.php]/dir/class/method?query=name ||
-
 *语言设置*
 
 {{{
@@ -95,7 +83,7 @@ language_decision 的可选值有：
 || 值 || 含义 ||
 || cookie || 从Cookie中自动判断语言，在Cookie中的键名由language_decision_key指定 ||
 || session ||  从Session中自动判断语言，在Session中的键名由language_decision_key指定 ||
-|| segment || 从URL中自动判断语言，由language_decision_key指定所在位置，如： URL为 /zh/welcome/index, language_decision_key为0, 则语言会被设置为 zh<br />（不建议此方式，因为会和URL规则混淆） ||
+|| segment || 从URL中自动判断语言，由language_decision_key指定所在位置，如： URL为 /zh/welcome/index, language_decision_key为0, 则语言会被设置为 zh，此选项需要可用语言列表，详细情况请参考配置文件中的说明 ||
 || query || 从查询中获取语言，也是有language_decision_key指定键名 ||
 
 *日志设置*
@@ -114,7 +102,19 @@ log记录级别，分为5个级别：
 *Session设置*
 
 {{{
-$config['sess_driver']			= 'database';
+
+$config['session']['driver'] = '';
+
+$config['session']['match_ip'] = FALSE;
+
+$config['session']['table'] = '';
+
+$config['session']['expiration'] = 7200;
+
+// memcache configuration
+$config['session']['mem_host'] = '';
+
+$config['session']['mem_port'] = '';
 }}}
 
 sess_driver 可选的值有：session, database, memcache；如果是database 则需要使用 SessionModel ， 并在数据库中建 Session 表：
