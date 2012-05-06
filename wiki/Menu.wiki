@@ -7,6 +7,7 @@
     * [UrlScheme URL规则]
     * [Configure 配置选项]
   * 开发指南
+    * [Basic 入门]
     * [Controller 控制器]
     * [Block 模块]
     * [Model 模型]
