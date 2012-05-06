@@ -1,0 +1,14 @@
+# this page introduce all the basic knowledge to users.
+
+= 如何入门 =
+
+要使用AtomCode进行开发，请先跟随教程开发出第一个简单程序，在此过程中对框架的工作原理进行理解。
+
+如果您有 CodeIgniter 的开发经验，可以直接跳过本节，然后进入[Controller 控制器]等节进行对比此框架和 CodeIgniter 的区别。
+
+
+= 基本环境 =
+
+在我们进行程序开发前，您需要首先使用 SVN 工具，将代码检出：
+<code language="shell">
+svn checkout http://atomcode.googlecode.com/svn/trunk/ atomcode</code>
