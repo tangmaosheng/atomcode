@@ -89,13 +89,51 @@ index id(id)) Engine=MyIsam;
 insert article values (1, "first", "first content"), (2, "second", "this is another article for testing");
 }}}
 
+== 修改数据库配置信息 ==
+
+1. 复制 system/config/database.php 到 application/config/database.php
+
+2. 修改配置为实际配置：
+
+{{{
+$config['database']['type'] = 'mysql';
+$config['database']['host'] = 'localhost';
+$config['database']['port'] = '';
+$config['database']['user'] = 'root';
+$config['database']['pass'] = '';
+$config['database']['name'] = 'atomcode';
+}}}
+
+== 建立模型 ==
+
+application/model/ArticleModel.php
+
+代码如下：
+
+{{{
+<?php
+class ArticleModel extends Model {
+	/**
+	 * @return ArticleModel
+	 */
+	public static function & instance() {
+		return parent::getInstance(__CLASS__);
+	}
+	
+	public function getList() {
+		return $this->get();
+	}
+
+	public function getArticle($id) {
+		$this->where('id', $id);
+		return $this->getOne();
+	}
+}
+}}}
+
 == 建立控制器 ==
 
 application/controller/ArticleController.php
-
-
-
-
 
 
 
