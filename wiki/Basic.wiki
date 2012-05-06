@@ -62,3 +62,40 @@ class IndexController extends Controller {
 
 是不是已经有内容输出？
 
+= 第一个真正的程序 =
+
+相信上面的 * Hello world * 只能证明框架可以运行了，但是你却仍然不知道如何开发。因为没有数据库也没有用到视图，也没有一个可以证明有逻辑的地方说明这个程序受了你的控制。
+
+下面我们来实现一个简单的文章列表和查看页面来学习如何使用 AtomCode 进行开发。
+
+== URL设计 ==
+
+列表页：http://localhost/atomcode/article/lists
+
+文章页：http://localhost/atomcode/article/view?id=1
+
+== 创建数据表 ==
+
+{{{
+create database atomcode;
+use atomcode;
+
+create table article (
+id int not null auto_increment,
+title varchar(20) not null,
+content varchar(3000) not null,
+index id(id)) Engine=MyIsam;
+
+insert article values (1, "first", "first content"), (2, "second", "this is another article for testing");
+}}}
+
+== 建立控制器 ==
+
+application/controller/ArticleController.php
+
+
+
+
+
+
+
