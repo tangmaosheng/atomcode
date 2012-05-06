@@ -131,9 +131,92 @@ class ArticleModel extends Model {
 }
 }}}
 
+== 建立Block ==
+
+本项目较为简单，Block这一步可以跳过直接通过控制器进行调用。但是为了演示Block在整框架运行中扮演的角色，所以我们还是建立了一个Block。
+
+application/block/ArticleBlock.php
+
+代码如下：
+
+{{{
+<?php
+
+class ArticleBlock {
+
+	private static $instance;
+
+	/**
+	 * 
+	 * @return ArticleBlock
+	 */
+	public static function &instance() {
+		if (!isset(self::$instance)) {
+			self::$instance = new self();
+		}
+		
+		return self::$instance;
+	}
+
+	public function all() {
+		return ArticleModel::instance()->getList();
+	}
+
+	public function view($id) {
+		return ArticleModel::instance()->getArticle($id);
+	}
+}
+}}}
+
+
 == 建立控制器 ==
+
 
 application/controller/ArticleController.php
 
+代码如下：
+
+{{{
+<?php
+
+class ArticleController extends Controller {
+        public function lists() {
+                $this->_assign('list', ArticleBlock::instance()->all());
+				return $this->_display('list');
+        }
 
 
+		public function view() {
+			$id = intval($_GET['id']);
+			$article = ArticleBlock::instance()->view($id);
+			if (!$article) {
+				show_404();
+			}
+			$this->_assign('article', $article);
+			return $this->_display('detail');
+		}
+}
+}}}
+
+== 建立视图 ==
+
+application/view/default/list.tpl
+
+代码如下：
+
+{{{
+<ul>
+{foreach $list $item}
+	<li><a href="{url url="article/view?id=$item.id"}">{$item.title}</a></li>
+{/foreach}
+</ul>
+}}}
+
+application/view/default/detail.tpl
+
+代码如下：
+
+{{{
+<h1>{$article.title}</h1>
+<p>{$article.content}</p>
+}}}
