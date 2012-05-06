@@ -1,3 +1,11 @@
 =许可协议=
 
-This framework published under Apache 2.0 License.
+AtomCode基于[http://www.apache.org/licenses/LICENSE-2.0 Apache License 2.0 许可协议]发布。
+
+而本文档您可以自由转载、修订。如果修订了本文档，则请告知本框架作者(eachcan&&gmail.com)，以便为更多用户提供方便。
+
+如果您需要在您的闭源项目或者商业项目中使用本框架，亦无需通知作者或支付任何费用，但作者希望您对框架的任何有益修改可以反馈回来，以便也让作者和其他开发者同时受益。
+
+最后希望您能加入到本框架的开发和发展中来，为广大PHP开发者提供便捷的工具和开发框架，也为PHP的发展尽一些力。同时对框架的任何意见和建议都请发送邮件到 eachcan&&gmail.com。
+
+上述 && 表示 @，您懂的。
