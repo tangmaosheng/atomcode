@@ -58,4 +58,7 @@ class IndexController extends Controller {
 }
 }}}
 
+现在你可以访问 http://localhost/atomcode/
+
+是不是已经有内容输出？
 
