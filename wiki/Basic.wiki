@@ -1,3 +1,4 @@
+#labels Phase-Implementation
 = 如何入门 =
 
 要使用AtomCode进行开发，请先跟随教程开发出第一个简单程序，在此过程中对框架的工作原理进行理解。
@@ -37,6 +38,24 @@ application/
 
 == 初始配置 ==
 
-下面我们开始进行初始配置：
+请参考：[Installation 如何安装]
 
-复制 system/config/config.php 到 application/config/config.php，然后
+== Hello World ==
+
+创建一个文件：
+
+application/controller/IndexController.php
+
+输入以下代码：
+
+{{{
+<?php
+
+class IndexController extends Controller {
+	public function index() {
+		echo "Hello world!";
+	}
+}
+}}}
+
+
