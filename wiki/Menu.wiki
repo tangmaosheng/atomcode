@@ -31,3 +31,5 @@
     * [Compatibly 如何使用其他类库]
     * [MultipleOutput 如何输出多种格式]
     * [HowToDebug 如何调试]
+  * 附录
+    * [NamedRegulation 命名规范]
