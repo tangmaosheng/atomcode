@@ -41,3 +41,32 @@ class Image {
 {{{
 注意：控制器只能放在根命名空间内！
 }}}
+
+== 配置规则 ==
+
+每个开发人员的配置文件请自己维护。并将新添加的配置项反应到生产环境配置中。
+
+主配置文件为： `config.php`，存放位置：`application/config/config.php` 任何主要配置和常量、全局配置都请写在此配置中。
+
+ 上述假定了 ENV 的值为空。
+ 如果 ENV 的值为 abc，则还要多一个配置路径为： application/config/abc/config.php。因为ENV不同，要加载的配置目录也不同。
+
+独立配置文件，比如： `database.php`，存放位置：`application/config/database.php`，
+要加载独立配置文件，则通过以下方式：
+
+database.php 文件内容：
+{{{
+<?php
+
+$config['database']['host'] = "localhost";
+$config['database']['port'] = 3306;
+}}}
+
+调用代码
+{{{
+<?php
+// $config = array(
+//    'host' => "localhost",
+//    'port' => 3306);
+$config = load_config("database");
+}}}
