@@ -29,6 +29,7 @@ class Cache {
 		if (!self::$instances[$driver]) {
 			$class = 'Cache' . ucfirst($driver) . 'Driver';
 			self::$instances[$driver] = new $class();
+			self::$instances[$driver]->setOption('ttl', self::$config['ttl']);
 			self::$instances[$driver]->setOptions(self::$config[$driver]);
 		}
 		
