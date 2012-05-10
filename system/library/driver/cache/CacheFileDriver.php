@@ -2,7 +2,7 @@
 
 class CacheFileDriver implements CacheDriver {
 
-	private $dir;
+	private $dir, $ttl;
 	
 	public function __construct() {
 		$this->dir = APP_PATH . '/cache/data/';
@@ -30,8 +30,9 @@ class CacheFileDriver implements CacheDriver {
 	/* (non-PHPdoc)
 	 * @see CacheDriver::set()
 	 */
-	public function set($id, $content, $ttl) {
+	public function set($id, $content, $ttl = NULl) {
 		$file = $this->dir . base64_encode($id) . '.php';
+		if (is_null($ttl)) $ttl = $this->ttl;
 		$arr['e'] = $ttl == -1 ? -1 : time() + $ttl;
 		$arr['d'] = $content;
 		if (!file_exists(dirname($file))) {
@@ -63,6 +64,9 @@ class CacheFileDriver implements CacheDriver {
 		switch ($name) {
 			case "dir":
 				$this->setDir($value);
+				break;
+			case 'ttl':
+				$this->ttl = $value;
 				break;
 		}
 	}
