@@ -165,7 +165,8 @@ if ($segments) {
 }
 
 if ($segments) {
-	$__CLASS = str_replace(' ', '', ucwords(str_replace(array('-', '_'), ' ', array_pop($segments))));
+	$segments_0 = array_pop($segments);
+	$__CLASS = str_replace(' ', '', ucwords(str_replace(array('-', '_'), ' ', $segments_0)));
 	if (is_dir(APP_PATH . DIRECTORY_SEPARATOR . 'controller' . DIRECTORY_SEPARATOR . implode(DIRECTORY_SEPARATOR, $segments))) {
 		$__DIR = implode(DIRECTORY_SEPARATOR, $segments);
 		$__METHOD = 'index';
@@ -174,13 +175,15 @@ if ($segments) {
 }
 
 if ($segments) {
-	$__METHOD = $__CLASS;
+	$__METHOD = $segments_0;
 	$__CLASS = str_replace(' ', '', ucwords(str_replace(array('-', '_'), ' ', array_pop($segments))));
 	if (is_dir(APP_PATH . DIRECTORY_SEPARATOR . 'controller' . DIRECTORY_SEPARATOR . implode(DIRECTORY_SEPARATOR, $segments))) {
 		$__DIR = implode(DIRECTORY_SEPARATOR, $segments);
 		unset($segments);
 	}
 }
+
+unset($segments_0);
 
 if (!$__CLASS) {
 	$__CLASS = 'Index';

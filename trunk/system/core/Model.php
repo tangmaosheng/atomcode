@@ -435,11 +435,14 @@ abstract class Model {
 		$this->keep();
 		$limit = $this->dbData->limit;
 		$select = $this->dbData->selects;
+		$query_type = $this->dbData->queryType;
 		unset($this->dbData->limit, $this->dbData->selects);
 		$this->select('count(1) num');
+		$this->dbData->queryType = 'select';
 		$result = $this->__getResult();
 		$this->dbData->limit = $limit;
 		$this->dbData->selects = $select;
+		$this->dbData->queryType = $query_type;
 		return $result[0]['num'];
 	}
 

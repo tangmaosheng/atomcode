@@ -1,6 +1,5 @@
 <?php
-if (!defined('BASE_PATH'))
-	exit('No direct script access allowed');
+if (!defined('BASE_PATH')) exit('No direct script access allowed');
 
 /**
  * Database Class
@@ -245,8 +244,7 @@ abstract class DbDriver {
 	 */
 	public function parseWhere($where, $org_logic = '', $link) {
 		static $i = 1;
-		if (!$where)
-			return '';
+		if (!$where) return '';
 		
 		if (is_string($where)) {
 			return $where;
@@ -373,7 +371,7 @@ abstract class DbDriver {
 				$s[] = $this->protectValue($st, $escape, $link);
 			}
 			
-			return ' (' .  implode(",", $s) . ')';
+			return ' (' . implode(",", $s) . ')';
 		}
 		
 		return $escape ? '"' . $this->escape($str, $link) . '"' : '"' . $str . '"';
@@ -396,14 +394,14 @@ abstract class DbDriver {
 	}
 
 	protected function getOrderbySql($data) {
-		$str = '';
+		$str = array();
 		if ($data->orderBys) {
 			foreach ($data->orderBys as $group) {
-				$str .= ' ' . $group['col'] . ($group['direction'] ? ' ' . strtoupper($group['direction']) : '');
+				$str[] = DbHelper::getProtectedString($group['col'], $this->protect_start, $this->protect_end) . ($group['direction'] ? ' ' . strtoupper($group['direction']) : '');
 			}
 		}
 		
-		return $str ? ' ORDER BY ' . $str : '';
+		return $str ? ' ORDER BY ' . implode(",", $str) : '';
 	}
 
 	/**
@@ -503,9 +501,9 @@ abstract class DbDriver {
 		
 		return ' SET ' . $set_sqls;
 	}
-	
+
 	abstract public function close($link);
-	
+
 	public function getLikeValue($value, $side, $escape, $link) {
 		$value = $escape ? $this->escape($value, $link) : $value;
 		$value = ($side == 'LEFT' || $side == 'BOTH' ? '%' : '') . $value . ($side == 'RIGHT' || $side == 'BOTH' ? '%' : '');
@@ -516,6 +514,8 @@ abstract class DbDriver {
 class DbHelper {
 
 	public static function getProtectedString($col_string, $start, $end) {
+		return self::protect($col_string, $start, $end);
+		
 		$len = strlen($col_string);
 		$in_quote = FALSE;
 		$quoted_char = '';
@@ -529,8 +529,7 @@ class DbHelper {
 		for($i = 0; $i < $len; $i++) {
 			$c = $col_string{$i};
 			
-			if ($c != ',' || $in_quote)
-				$prev_string .= $c;
+			if ($c != ',' || $in_quote) $prev_string .= $c;
 			
 			if ($in_quote && $c != $quoted_char || $escaping) {
 				$escaping && $escaping = !$escaping;
@@ -554,12 +553,17 @@ class DbHelper {
 				}
 			}
 		}
-		if ($prev_string)
-			$cols[] = $prev_string;
+		
+		if ($prev_string) $cols[] = $prev_string;
+		
 		foreach ($cols as &$col) {
 			$col = self::protect($col, $start, $end);
 		}
 		return implode(', ', $cols);
+	}
+	
+	public static function protect($col, $start, $end) {
+		return preg_replace("/(\\b|\\s)(\\w+)(\\b|\\s)/", '\1' . $start . '\2' . $end . '\3', $col);
 	}
 }
 
