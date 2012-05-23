@@ -66,7 +66,7 @@ function is_really_writable($file) {
 		}
 		
 		fclose($fp);
-		@chmod($file, DIR_WRITE_MODE);
+		@chmod($file, 0777);
 		@unlink($file);
 		return TRUE;
 	} elseif (!is_file($file) || ($fp = @fopen($file, 'ab')) === FALSE) {

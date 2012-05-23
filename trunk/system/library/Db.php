@@ -374,7 +374,7 @@ abstract class DbDriver {
 			return ' (' . implode(",", $s) . ')';
 		}
 		
-		return $escape ? '"' . $this->escape($str, $link) . '"' : '"' . $str . '"';
+		return $escape ? '"' . $this->escape($str, $link) . '"' : $str;
 	}
 
 	/**

@@ -8,7 +8,7 @@ register_shutdown_function("__shutdown_function_callback");
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<title>Untitled Document</title>
+<title><?php echo $title; ?></title>
 <style type="text/css">
 body,td,th {
 	font-family: "微软雅黑", "Arial Black";
