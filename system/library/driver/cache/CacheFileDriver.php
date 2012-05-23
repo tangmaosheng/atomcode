@@ -54,7 +54,7 @@ class CacheFileDriver implements CacheDriver {
 	 */
 	public function delete($id) {
 		$file = $this->dir . base64_encode($id) . '.php';
-		return @unlink($file);
+		return !file_exists($file) || @unlink($file);
 	}
 
 	/* (non-PHPdoc)
