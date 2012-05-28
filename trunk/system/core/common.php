@@ -241,7 +241,6 @@ function log_message($message, $level = 'error', $php_error = FALSE) {
 function show_error($message, $title = '', $config = array()) {
 	$_error = & Error::instance();
 	echo $_error->show_error($message, $title, $config);
-	exit();
 }
 
 /**

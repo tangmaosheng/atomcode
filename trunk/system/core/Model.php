@@ -643,4 +643,8 @@ abstract class Model {
 		
 		return $this->newWhere($key . ' NOT IN', $value, $escape);
 	}
+	
+	public function affectedRows() {
+		return $this->myDriver->affectedRows($this->myLink);
+	}
 }

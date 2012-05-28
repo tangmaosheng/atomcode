@@ -250,7 +250,7 @@ abstract class DbDriver {
 			return $where;
 		}
 		
-		if ($where['sql']) {
+		if (array_key_exists('sql', $where)) {
 			if (is_string($where['key'])) {
 				if (!$this->hasOperator($where['key'])) {
 					return $where['key'] . '=(' . $where['sql'] . ')';

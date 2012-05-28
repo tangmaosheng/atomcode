@@ -52,6 +52,8 @@ class DbMysqlDriver extends DbDriver {
 			$this->showError(0, "Unknown charset: " . $config['charset']);
 		}
 		
+		mysql_query("set time_zone='" .  date('P') . "'", $link);
+		
 		return $link;
 	}
 

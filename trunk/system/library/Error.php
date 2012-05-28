@@ -252,8 +252,6 @@ class Error {
 			echo PHP_EOL . "Configure:" . PHP_EOL;
 			__function_error_show_config_item_cli($config);
 		}
-		
-		exit();
 	}
 }
 // End Error Class
