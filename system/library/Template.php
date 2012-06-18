@@ -313,6 +313,6 @@ class Template  {
 	}
 
 	private function getCacheFile($view) {
-		return APP_PATH . '/cache/view/' . $this->tpl_base_path . $view . $this->tpl_ext;
+		return str_replace('\\', '/', APP_PATH) . '/cache/view/' . $this->tpl_base_path . $view . $this->tpl_ext;
 	}
 }
