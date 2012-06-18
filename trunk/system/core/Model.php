@@ -456,7 +456,7 @@ abstract class Model {
 		$result1 = $this->get($page_size, $offset);
 		
 		$total = $this->myDriver->foundRows($this->myLink);
-		$pageinfo = array('total' => $total, 'page' => $page, 'page_size' => $page_size, 'page_count' => ceil($total / $page_size));
+		$pageinfo = array('total' => $total, 'page' => $page, 'page_size' => $page_size, 'page_count' => ceil($total / $page_size), 'result_count' => count($result1));
 		return array('result' => $result1, 'page' => $pageinfo);
 	}
 
