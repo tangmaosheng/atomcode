@@ -309,7 +309,7 @@ class Template  {
 	}
 
 	private function getView($view) {
-		return APP_PATH . '/view/' . $this->tpl_base_path . $view . $this->tpl_ext;
+		return str_replace('\\', '/', APP_PATH) . '/view/' . $this->tpl_base_path . $view . $this->tpl_ext;
 	}
 
 	private function getCacheFile($view) {
