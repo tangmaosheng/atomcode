@@ -172,7 +172,36 @@ abstract class Model {
 	}
 
 	protected function getDatabaseName() {
-		return $this->myConfig['name'];
+		return $this->database;
+	}
+	
+	protected function chooseLink($query_type) {
+		if ($this->myConfig['mode'] == 'master/slave') {
+			$query_type = strtoupper($query_type);
+			if ($query_type == 'LAST') {
+				return $this->myLink['l'];
+			}
+			$slave_types = array('SELECT', 'SHOW');
+			if (in_array($query_type, $slave_types)) {
+				if (!$this->myLink['s']) {
+					$slaveid = mt_rand(0, count($this->myConfig['slave']) - 1);
+					$this->myConfig['slaveid'] = $slaveid;
+					$this->myLink['s'] = $this->myDriver->connect($this->myConfig['slave'][$slaveid]);
+				}
+				
+				$this->myLink['l'] = $this->myLink['s'];
+				return $this->myLink['s'];
+			} else {
+				if (!$this->myLink['m']) {
+					$this->myLink['m'] = $this->myDriver->connect($this->myConfig['master']);
+				}
+				
+				$this->myLink['l'] = $this->myLink['m'];
+				return $this->myLink['m'];
+			}
+		} else {
+			return $this->myLink;
+		}
 	}
 
 	public function limit($limit, $offset = NULL) {
@@ -221,19 +250,19 @@ abstract class Model {
 	}
 
 	public function startTransaction($option = NULL) {
-		return $this->myDriver->startTrans($option, $this->myLink);
+		return $this->myDriver->startTrans($option, $this->chooseLink('start transaction'));
 	}
 
 	public function commit($option = NULL) {
-		return $this->myDriver->commit($option, $this->myLink);
+		return $this->myDriver->commit($option, $this->chooseLink('LAST'));
 	}
 
 	public function setAutoCommit($auto = TRUE) {
-		return $this->myDriver->setAutoCommit($auto, $this->myLink);
+		return $this->myDriver->setAutoCommit($auto, $this->chooseLink('LAST'));
 	}
 
 	public function rollback($option = NULL) {
-		return $this->myDriver->rollback($option, $this->myLink);
+		return $this->myDriver->rollback($option, $this->chooseLink('LAST'));
 	}
 
 	public function groupBy($columns, $direction = '', $option = '') {
@@ -455,7 +484,7 @@ abstract class Model {
 		$offset = ($page - 1) * $page_size;
 		$result1 = $this->get($page_size, $offset);
 		
-		$total = $this->myDriver->foundRows($this->myLink);
+		$total = $this->myDriver->foundRows($this->chooseLink('last'));
 		$pageinfo = array('total' => $total, 'page' => $page, 'page_size' => $page_size, 'page_count' => ceil($total / $page_size), 'result_count' => count($result1));
 		return array('result' => $result1, 'page' => $pageinfo);
 	}
@@ -494,11 +523,16 @@ abstract class Model {
 		if (!$this->dbData->subQueryNoTable) {
 			$this->dbData->table = $this->getTable();
 		}
-		return $this->myDriver->getSql($this->dbData, $this->myLink);
+		
+		return $this->myDriver->getSql($this->dbData, $this->chooseLink($this->dbData->queryType));
 	}
 
-	public function query($sql) {
+	public function query($sql, $query_type = '') {
 		$this->lastSql = $sql;
+		
+		if (!$query_type) {
+			$query_type = strtoupper(strtok($sql, ' '));
+		}
 		
 		if ($this->myConfig['save_queries']) {
 			$time_start = microtime(TRUE);
@@ -508,7 +542,7 @@ abstract class Model {
 			$this->myDriver->setErrorHandler($this);
 		}
 		
-		$result = $this->myDriver->query($sql, $this->myLink);
+		$result = $this->myDriver->query($sql, $this->chooseLink($this->dbData->queryType));
 		if ($this->myConfig['save_queries']) {
 			self::$sqls[] = $sql;
 			self::$queryTime[] = microtime(TRUE) - $time_start;
@@ -574,7 +608,7 @@ abstract class Model {
 	 */
 	public function like($key, $value, $side = 'BOTH', $escape = TRUE, $logic = 'AND') {
 		$side = strtoupper($side);
-		return $this->where($key . ' LIKE', $this->myDriver->getLikeValue($value, $side, $escape, $this->myLink), FALSE, $logic);
+		return $this->where($key . ' LIKE', $this->myDriver->getLikeValue($value, $side, $escape, $this->chooseLink('select')), FALSE, $logic);
 	}
 
 	/**
@@ -585,7 +619,7 @@ abstract class Model {
 	 * @param Bool $escape
 	 */
 	public function newLike($key, $value, $side = 'BOTH', $escape = TRUE) {
-		return $this->newWhere($key . ' LIKE', $this->myDriver->getLikeValue($value, $side, $escape, $this->myLink), FALSE);
+		return $this->newWhere($key . ' LIKE', $this->myDriver->getLikeValue($value, $side, $escape, $this->chooseLink('select')), FALSE);
 	}
 
 	/**
@@ -598,7 +632,7 @@ abstract class Model {
 	 */
 	public function notLike($key, $value, $side = 'BOTH', $escape = TRUE, $logic = 'AND') {
 		$side = strtoupper($side);
-		return $this->where($key . ' NOT LIKE', $this->myDriver->getLikeValue($value, $side, $escape, $this->myLink), FALSE, $logic);
+		return $this->where($key . ' NOT LIKE', $this->myDriver->getLikeValue($value, $side, $escape, $this->chooseLink('select')), FALSE, $logic);
 	}
 
 	/**
@@ -609,7 +643,7 @@ abstract class Model {
 	 * @param Bool $escape
 	 */
 	public function newNotLike($key, $value, $side = 'BOTH', $escape = TRUE) {
-		return $this->newWhere($key . ' NOT LIKE', $this->myDriver->getLikeValue($value, $side, $escape, $this->myLink), FALSE);
+		return $this->newWhere($key . ' NOT LIKE', $this->myDriver->getLikeValue($value, $side, $escape, $this->chooseLink('select')), FALSE);
 	}
 
 	public function whereIn($key, $value, $escape = TRUE, $logic = 'AND') {
@@ -645,6 +679,10 @@ abstract class Model {
 	}
 	
 	public function affectedRows() {
-		return $this->myDriver->affectedRows($this->myLink);
+		return $this->myDriver->affectedRows($this->chooseLink('LAST'));
+	}
+	
+	public function lastId() {
+		return $this->myDriver->lastId($this->chooseLink('LAST'));
 	}
 }

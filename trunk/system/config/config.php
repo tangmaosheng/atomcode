@@ -98,6 +98,13 @@ $config['log_path'] = '';
 $config['log_date_format'] = 'Y-m-d H:i:s';
 
 /*
+ * Log Message Destination
+ * 
+ * Will wirte log message to file or console.
+ */
+$config['log_destination'] = 'file';
+
+/*
  * Session Variables
  *
  * sess_driver	Drivers: session, database, memcache
@@ -119,16 +126,18 @@ $config['session']['mem_port'] = '';
  * Cookie Related Variables
  *--------------------------------------------------------------------------
  *
- * 'cookie_prefix' = Set a prefix if you need to avoid collisions
- * 'cookie_domain' = Set to .your-domain.com for site-wide cookies
- * 'cookie_path'   =  Typically will be a forward slash
- * 'cookie_secure' =  Cookies will only be set if a secure HTTPS connection exists.
+ * 'prefix' = Set a prefix if you need to avoid collisions
+ * 'domain' = Set to .your-domain.com for site-wide cookies
+ * 'path'   =  Typically will be a forward slash
+ * 'secure' =  Cookies will only be set if a secure HTTPS connection exists.
  *
 */
-$config['cookie_prefix'] = "";
-$config['cookie_domain'] = "";
-$config['cookie_path'] = "/";
-$config['cookie_secure'] = FALSE;
+$config['cookie']['prefix'] = "";
+$config['cookie']['domain'] = "";
+$config['cookie']['path'] = "/";
+$config['cookie']['secure'] = FALSE;
+$config['cookie']['encrypt'] = FALSE;
+$config['cookie']['key'] = '';
 
 /*
  * Global XSS Filtering

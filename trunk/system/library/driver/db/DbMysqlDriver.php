@@ -35,6 +35,10 @@ class DbMysqlDriver extends DbDriver {
 	}
 
 	public function connect($config) {
+		if ($config['mode'] == 'master/slave') {
+			return array('m' => null, 's' => null);
+		}
+		
 		if ($config['pconnect']) {
 			$link = mysql_pconnect($config['host'] . ($config['port'] ? ':' . $config['port'] : ''), $config['user'], $config['pass']);
 		} else {
