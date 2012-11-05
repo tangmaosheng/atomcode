@@ -7,6 +7,10 @@ define('RAND_ALPHA', 2);
 define('RAND_U_ALPHA', 4);
 define('RAND_SYMBOL', 8);
 
+define('LOG_FILE', 'file');
+define('LOG_SYS', 'sys');
+define('LOG_DEFAULT', 'default');
+
 /**
  * AtomCode
  * 
@@ -228,9 +232,83 @@ function log_message($message, $level = 'error', $php_error = FALSE) {
 }
 
 /**
+ * 记录日志到系统日志
+ * 
+ * @param int $priority
+ * @param string $message
+ * @param int $dest
+ */
+function aclog($priority, $message, $dest) {
+	$dest = ($dest == LOG_DEFAULT ? (get_config('log_destination') == 'console' ? LOG_CONS : LOG_FILE) : $dest);
+	
+	if ($dest == LOG_FILE) {
+		$_levels = array(LOG_ERR => 'error', LOG_DEBUG => 'debug', LOG_INFO => 'info');
+		return log_message($message, $_levels[$priority]);
+	} else {
+		return ac_syslog($priority, $message, $dest);
+	}
+}
+
+/**
+ * 记录到系统日志
+ * 
+ * @param int $priority
+ * @param string $message
+ * @param int $dest
+ */
+function ac_syslog($priority, $message, $dest) {
+	$log_opt = LOG_PID;
+	
+	if ($dest == LOG_CONS || $dest == LOG_PERROR) {
+		$log_opt |= $dest;
+	}
+	
+	openlog("atomcode", $log_opt, LOG_USER);
+	syslog($priority, $message);
+	closelog();
+}
+
+/**
+ * 记录调试信息
+ * 
+ * @param string $message
+ * @param int $dest
+ */
+function log_d($message, $dest = LOG_DEFAULT) {
+	return aclog(LOG_DEBUG, $message, $dest);
+}
+
+/**
+ * 记录信息
+ * 
+ * @param string $message
+ * @param int $dest
+ */
+function log_i($message, $dest = LOG_DEFAULT) {
+	return aclog(LOG_INFO, $message, $dest);
+}
+
+/**
+ * 记录错误信息
+ * 
+ * @param string $message
+ * @param int $dest
+ */
+function log_e($message, $dest = LOG_DEFAULT) {
+	return aclog(LOG_ERR, $message, $dest);
+}
+
+function println($message, $delay = FALSE) {
+	if ($delay) {
+		echo $message . (IS_CLI ? "\n" : "<br />\n");
+	} else {
+		echo $message . (IS_CLI ? "\n" : "<br />\n");
+	}
+}
+/**
  * 快速显示错误页面
  *
- * 此函数显示的是 PHP 错误类型，会阻断 PHP 的执行。使用的错误页面模板是 error_general 模板
+ * 此函数显示的是 PHP 错误类型。使用的错误页面模板是 error_general 模板
  *
  * @param string $message 错误信息
  * @param integer $status_code 同 HTTP RESPONSE CODE, {@link http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html}
@@ -784,6 +862,62 @@ function set_style($style) {
 	$l = & get_config('view_path');
 	$style = preg_replace('/\W/', '', $style);
 	$l = $style ? $style : get_config('default_view_path');
+}
+
+/**
+ * 加密函数
+ * @param string $string
+ * @param enum $operation
+ * @param string $key
+ * @param timestamp $expiry
+ */
+function authcode($string, $operation = 'DECODE', $key = '', $expiry = 0) {
+        $ckey_length = 6;
+        $key = md5($key ? $key : $GLOBALS['']);
+        $keya = md5(substr($key, 0, 16));
+        $keyb = md5(substr($key, 16, 16));
+        $keyc = $ckey_length ? ($operation == 'DECODE' ? substr($string, 0, $ckey_length): substr(md5(microtime()), -$ckey_length)) : '';
+
+        $cryptkey = $keya.md5($keya.$keyc);
+        $key_length = strlen($cryptkey);
+
+        $string = $operation == 'DECODE' ? base64_decode(substr($string, $ckey_length)) : sprintf('%010d', $expiry ? $expiry + time() : 0).substr(md5($string.$keyb), 0, 16).$string;
+        $string_length = strlen($string);
+
+        $result = '';
+
+        $box = range(0, 255);
+        $rndkey = array();
+        for($i = 0; $i <= 255; $i++) {
+                $rndkey[$i] = ord($cryptkey[$i % $key_length]);
+        }
+
+        for($j = $i = 0; $i < 256; $i++) {
+                $j = ($j + $box[$i] + $rndkey[$i]) % 256;
+                $tmp = $box[$i];
+                $box[$i] = $box[$j];
+                $box[$j] = $tmp;
+        }
+
+        for($a = $j = $i = 0; $i < $string_length; $i++) {
+                $a = ($a + 1) % 256;
+                $j = ($j + $box[$a]) % 256;
+                $tmp = $box[$a];
+                $box[$a] = $box[$j];
+                $box[$j] = $tmp;
+
+                $result .= chr(ord($string[$i]) ^ ($box[($box[$a] + $box[$j]) % 256]));
+        }
+
+        if($operation == 'DECODE') {
+                if((substr($result, 0, 10) == 0 || substr($result, 0, 10) - time() > 0) && substr($result, 10, 16) == substr(md5(substr($result, 26).$keyb), 0, 16)) {
+                        return substr($result, 26);
+                } else {
+                        return '';
+                }
+        } else {
+                return $keyc.str_replace('=', '', base64_encode($result));
+        }
 }
 
 /**

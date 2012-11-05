@@ -48,6 +48,7 @@ class Session {
 			session_set_save_handler(array(&self::$instance, 'open'), array(&self::$instance, 'close'), array(&self::$instance, 'read'), array(&self::$instance, 'write'), array(&self::$instance, 'destroy'), array(&self::$instance, 'gc'));
 		}
 		session_name('ATOMCODEUID');
+		session_save_path(APP_PATH . '/cache');
 		session_start();
 		self::$started = TRUE;
 		

@@ -158,7 +158,7 @@ class Template  {
 	
 	private function parseForeach($matches) {
 		$src_var = $this->_parseVar($matches[1]);
-		return '<?php foreach (' . $src_var . ' as ' . $matches[2] . (isset($matches[3]) ? ' => ' . $matches[3] : '') . ') { ?>';
+		return '<?php if (!is_array(' . $src_var . ') && !is_object(' . $src_var . ')) ' . $src_var . ' = array(); foreach (' . $src_var . ' as ' . $matches[2] . (isset($matches[3]) ? ' => ' . $matches[3] : '') . ') { ?>';
 	}
 	
 	private function parseUrl($matches) {
