@@ -91,6 +91,7 @@ abstract class Model {
 		if (!$this->myConfig) {
 			if (!self::$multiple) {
 				$this->myConfig = & self::$dbConfigs;
+				$this->database = 'default';
 			} else {
 				if ($this->database && array_key_exists($this->database, self::$dbConfigs['dbs'])) {
 					$this->myConfig = & self::$dbConfigs['dbs'][$this->database];
@@ -120,19 +121,11 @@ abstract class Model {
 		$this->myDriver->setErrorHandler($this);
 		
 		if (!$this->myLink) {
-			if (self::$multiple) {
-				if (!array_key_exists($this->database, self::$dbLinks)) {
-					self::$dbLinks[$this->database] = $this->myDriver->connect($this->myConfig);
-				}
-				
-				$this->myLink = self::$dbLinks[$this->database];
-			} else {
-				if (!self::$dbLinks) {
-					self::$dbLinks = $this->myDriver->connect($this->myConfig);
-				}
-				
-				$this->myLink = self::$dbLinks;
+			if (!array_key_exists($this->database, self::$dbLinks)) {
+				self::$dbLinks[$this->database] = $this->myDriver->connect($this->myConfig);
 			}
+			
+			$this->myLink = self::$dbLinks[$this->database];
 		}
 		
 		$this->reset();
@@ -174,7 +167,7 @@ abstract class Model {
 	protected function getDatabaseName() {
 		return $this->database;
 	}
-	
+
 	protected function chooseLink($query_type) {
 		if ($this->myConfig['mode'] == 'master/slave') {
 			$query_type = strtoupper($query_type);
@@ -183,17 +176,25 @@ abstract class Model {
 			}
 			$slave_types = array('SELECT', 'SHOW');
 			if (in_array($query_type, $slave_types)) {
+				if (!$this->myLink['s'] && self::$dbLinks[$this->database]['s']) {
+					$this->myLink['s'] = self::$dbLinks[$this->database]['s'];
+				}
 				if (!$this->myLink['s']) {
 					$slaveid = mt_rand(0, count($this->myConfig['slave']) - 1);
 					$this->myConfig['slaveid'] = $slaveid;
 					$this->myLink['s'] = $this->myDriver->connect($this->myConfig['slave'][$slaveid]);
+					self::$dbLinks[$this->database]['s'] = $this->myLink['s'];
 				}
 				
 				$this->myLink['l'] = $this->myLink['s'];
 				return $this->myLink['s'];
 			} else {
+				if (!$this->myLink['m'] && self::$dbLinks[$this->database]['m']) {
+					$this->myLink['m'] = self::$dbLinks[$this->database]['m'];
+				}
 				if (!$this->myLink['m']) {
 					$this->myLink['m'] = $this->myDriver->connect($this->myConfig['master']);
+					self::$dbLinks[$this->database]['m'] = $this->myLink['m'];
 				}
 				
 				$this->myLink['l'] = $this->myLink['m'];
@@ -519,7 +520,7 @@ abstract class Model {
 		if ($type) {
 			$this->dbData->queryType = $type;
 		}
-		
+		$t = microtime(true);
 		if (!$this->dbData->subQueryNoTable) {
 			$this->dbData->table = $this->getTable();
 		}
@@ -677,11 +678,11 @@ abstract class Model {
 		
 		return $this->newWhere($key . ' NOT IN', $value, $escape);
 	}
-	
+
 	public function affectedRows() {
 		return $this->myDriver->affectedRows($this->chooseLink('LAST'));
 	}
-	
+
 	public function lastId() {
 		return $this->myDriver->lastId($this->chooseLink('LAST'));
 	}

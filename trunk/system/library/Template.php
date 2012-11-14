@@ -263,9 +263,9 @@ class Template  {
 		$var = preg_replace('/\.(\w+)/', '[$1]', $var);
 		
 		if ($quot) {
-			return preg_replace('/\[([a-zA-Z]+)\]/', '["$1"]', $var);
+			return preg_replace('/\[([a-zA-Z_]+)\]/', '["$1"]', $var);
 		} else {
-			return preg_replace('/\[([a-zA-Z]+)\]/', '[$1]', $var);
+			return preg_replace('/\[([a-zA-Z_]+)\]/', '[$1]', $var);
 		}
 	}
 	
