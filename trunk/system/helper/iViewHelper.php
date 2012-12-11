@@ -199,7 +199,7 @@ abstract class iViewHelper {
 		if ($type == 'json') {
 			self::json($value);
 		} elseif ($type == 'html') {
-			return highlight_string($value, TRUE);
+			return highlight_string(var_export($value, TRUE), TRUE);
 		} else {
 			return var_export($value, TRUE);
 		}
@@ -227,6 +227,10 @@ abstract class iViewHelper {
 	
 	public static function inserse($a) {
 		return 1/$a;
+	}
+	
+	public static function abs($a) {
+		return abs($a);
 	}
 	
 	public static function money($a, $format = '%.2f') {
