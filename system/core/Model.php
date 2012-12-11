@@ -64,6 +64,8 @@ abstract class Model {
 
 	protected $table, $database, $lastSql;
 
+	private $forcing = '';
+
 	protected static $instance;
 
 	public function __construct() {
@@ -171,14 +173,33 @@ abstract class Model {
 	protected function chooseLink($query_type) {
 		if ($this->myConfig['mode'] == 'master/slave') {
 			$query_type = strtoupper($query_type);
-			if ($query_type == 'LAST') {
-				return $this->myLink['l'];
-			}
 			$slave_types = array('SELECT', 'SHOW');
-			if (in_array($query_type, $slave_types)) {
+			$choose = '';
+			
+			if ($this->forcing) {
+				$choose = $this->forcing;
+			} elseif ($query_type == 'LAST') {
+				$choose = 'l';
+			} 
+			
+			if ($this->myLink[$choose]) {
+				return $this->myLink[$choose];
+			}
+			
+			// choose failare, re-choose one line
+			if ($choose == 'l') {
+				if (in_array($query_type, $slave_types)) {
+					$choose = 's';
+				} else {
+					$choose = 'm';
+				}
+			}
+			
+			if ($choose == 's') {
 				if (!$this->myLink['s'] && self::$dbLinks[$this->database]['s']) {
 					$this->myLink['s'] = self::$dbLinks[$this->database]['s'];
 				}
+				
 				if (!$this->myLink['s']) {
 					$slaveid = mt_rand(0, count($this->myConfig['slave']) - 1);
 					$this->myConfig['slaveid'] = $slaveid;
@@ -203,6 +224,14 @@ abstract class Model {
 		} else {
 			return $this->myLink;
 		}
+	}
+
+	public function forceMaster($enable = TRUE) {
+		$this->forcing = $enable ? 'm' : '';
+	}
+
+	public function forceSlave($enable = TRUE) {
+		$this->forcing = $enable ? 's' : '';
 	}
 
 	public function limit($limit, $offset = NULL) {
@@ -461,8 +490,10 @@ abstract class Model {
 		return $this->__getResult();
 	}
 
-	public function countAllResults() {
-		$this->keep();
+	public function countAllResults($keep = TRUE) {
+		if ($keep)
+			$this->keep();
+		
 		$limit = $this->dbData->limit;
 		$select = $this->dbData->selects;
 		$query_type = $this->dbData->queryType;
@@ -507,7 +538,7 @@ abstract class Model {
 	}
 
 	private function logError($msg) {
-		if ($this->myConfig['log']) {
+		if ($this->myConfig['log_error']) {
 			log_message($msg);
 		}
 	}
@@ -543,7 +574,7 @@ abstract class Model {
 			$this->myDriver->setErrorHandler($this);
 		}
 		
-		$result = $this->myDriver->query($sql, $this->chooseLink($this->dbData->queryType));
+		$result = $this->myDriver->query($sql, $this->chooseLink($query_type));
 		if ($this->myConfig['save_queries']) {
 			self::$sqls[] = $sql;
 			self::$queryTime[] = microtime(TRUE) - $time_start;
@@ -553,7 +584,7 @@ abstract class Model {
 	}
 
 	private function __getResult() {
-		$result = $this->query($this->getSql());
+		$result = $this->query($this->getSql(), $this->dbData->queryType);
 		
 		if ($this->doNotExecuteReset) {
 			$this->doNotExecuteReset = FALSE;
@@ -685,5 +716,23 @@ abstract class Model {
 
 	public function lastId() {
 		return $this->myDriver->lastId($this->chooseLink('LAST'));
+	}
+
+	public function lock($is_write = TRUE) {
+		$type = $is_write ? 'WRITE' : 'READ';
+		
+		if ($is_write) {
+			$this->forceMaster();
+		} else {
+			$this->forceSlave();
+		}
+		$sql = "LOCK TABLE {$this->table} $type";
+		return $this->query($sql);
+	}
+
+	public function unlock() {
+		$this->forceMaster(FALSE);
+		$sql = 'UNLOCK TABLES';
+		$this->query($sql);
 	}
 }
