@@ -205,4 +205,53 @@ abstract class iViewHelper {
 		}
 	
 	}
+	public static function multiple($a, $b) {
+		return $a * $b;
+	}
+	
+	public static function divide($a, $b) {
+		return $a / $b;
+	}
+	
+	public static function plus($a, $b) {
+		return $a + $b;
+	}
+	
+	public static function minus($a, $b) {
+		return $a - $b;
+	}
+	
+	public static function negative($a) {
+		return -$a;
+	}
+	
+	public static function inserse($a) {
+		return 1/$a;
+	}
+	
+	public static function money($a, $format = '%.2f') {
+		return sprintf($format, $a);
+	}
+	
+	public static function number($a, $decimals = 0) {
+		if (!is_numeric($a)) {
+			return '';
+		}
+		
+		return number_format($a, $decimals);
+	}
+	
+	public static function reassign($a, &$b) {
+		$b = $a;
+		
+		return '';
+	}
+	
+	public static function ifpost($a, $b) {
+		if (strtolower($_SERVER['REQUEST_METHOD']) == 'post') {
+			return $b;
+		} else {
+			return $a;
+		}
+	}
 }
