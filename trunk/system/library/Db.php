@@ -15,6 +15,9 @@ if (!defined('BASE_PATH')) exit('No direct script access allowed');
  * @since		Version 2.0
  */
 class Db {
+	const NO_QUOTE_KEY = 0x01;
+	const NO_QUOTE_VALUE = 0x02;
+	const NO_ESCAPE_VALUE = 0x04;
 
 	/**
 	 * 返回数据库驱动
@@ -132,14 +135,7 @@ abstract class DbDriver {
 
 	public function getColumnInfo($col) {
 		$cols = array();
-		if (is_array($col['col'])) {
-			return implode(", ", $col['col']);
-		} else {
-			return $col['col'];
-		}
-		// @todo 实现 select 中的字段保护
-		// 下面程序没有运行
-		if (!$col['escape']) {
+		if (($col['escape'] & DB::NO_QUOTE_KEY) == DB::NO_QUOTE_KEY) {
 			if (is_array($col['col'])) {
 				return implode(", ", $col['col']);
 			} else {
@@ -240,7 +236,7 @@ abstract class DbDriver {
 	 * array('key' => $key, 'value' => $value, 'escape' => $escape, 'logic' => $logic);
 	 * array('key' => $key, 'sql' => $value, 'escape' => $escape, 'logic' => $logic);
 	 * Enter description here ...
-	 * @param unknown_type $where
+	 * @param mixed $where
 	 */
 	public function parseWhere($where, $org_logic = '', $link) {
 		static $i = 1;
@@ -252,23 +248,26 @@ abstract class DbDriver {
 		
 		if (array_key_exists('sql', $where)) {
 			if (is_string($where['key'])) {
-				if (!$this->hasOperator($where['key'])) {
-					return $where['key'] . '=(' . $where['sql'] . ')';
+				$where['key'] = trim($where['key']);
+				if (($oper = $this->hasOperator($where['key'])) == '') {
+					return $this->protectKey($where['key'], $where['escape']) . '=(' . $where['sql'] . ')';
 				} else {
-					return $where['key'] . '(' . $where['sql'] . ')';
+					return $this->protectKey(trim(substr($where['key'], 0, -strlen($oper))), $where['escape']) . $oper . ' (' . $where['sql'] . ')';
 				}
 			} else {
 				return $this->parseWhere($where['key'], $org_logic, $link);
 			}
 		} elseif (array_key_exists('value', $where)) {
 			if (is_string($where['key'])) {
+				$where['key'] = trim($where['key']);
 				if (($oper = $this->hasOperator($where['key'])) == '') {
-					return $where['key'] . '=' . $this->protectValue($where['value'], $where['escape'], $link);
+					return $this->protectKey($where['key'], $where['escape']) . '=' . $this->protectValue($where['value'], $where['escape'], $link);
 				} else {
 					if ($oper == ' LIKE' || $oper == ' NOT LIKE' || $oper == ' IS' || $oper == ' IS NOT' || $oper == ' IN' || $oper == ' NOT IN') {
-						return $where['key'] . ' ' . $this->protectValue($where['value'], $where['escape'], $link);
+						return $this->protectKey(trim(substr($where['key'], 0, -strlen($oper))), $where['escape']) . $oper . ' ' . $this->protectValue($where['value'], $where['escape'], $link);
 					}
-					return $where['key'] . $this->protectValue($where['value'], $where['escape'], $link);
+					
+					return $this->protectKey(trim(substr($where['key'], 0, -strlen($oper))), $where['escape']) . $oper . $this->protectValue($where['value'], $where['escape'], $link);
 				}
 			} else {
 				$i++;
@@ -291,6 +290,7 @@ abstract class DbDriver {
 			$org_logic = 'AND';
 		}
 		
+		// only "AND" or "OR"
 		$wheres = array();
 		if ($where['AND']) {
 			foreach ($where['AND'] as $w) {
@@ -329,7 +329,7 @@ abstract class DbDriver {
 	}
 
 	protected function hasOperator($str) {
-		$operators = array('=', '>', '<', '>=', '<=', '<>', '!=', '<=>', ' IS NOT', ' IS', " LIKE", " NOT LIKE", " IN", " NOT IN");
+		$operators = array('<=>', '>=', '<=', '<>', '!=','=', '>', '<', ' IS NOT', ' IS', " LIKE", " NOT LIKE", " IN", " NOT IN");
 		$str = strtoupper($str);
 		foreach ($operators as $oper) {
 			if (strpos($str, $oper)) {
@@ -340,8 +340,8 @@ abstract class DbDriver {
 		return '';
 	}
 
-	protected function protectKey($str) {
-		return $this->protect_start . $str . $this->protect_end;
+	protected function protectKey($str, $escape = 0) {
+		return $escape & DB::NO_QUOTE_KEY ? $str : $this->protect_start . $str . $this->protect_end;
 	}
 
 	protected function protectKeyArray($array) {
@@ -374,7 +374,7 @@ abstract class DbDriver {
 			return ' (' . implode(",", $s) . ')';
 		}
 		
-		return $escape ? '"' . $this->escape($str, $link) . '"' : $str;
+		return $escape & DB::NO_QUOTE_VALUE ? $str : '"' . ($escape & DB::NO_ESCAPE_VALUE ? $str : $this->escape($str, $link)) . '"';
 	}
 
 	/**
@@ -505,8 +505,9 @@ abstract class DbDriver {
 	abstract public function close($link);
 
 	public function getLikeValue($value, $side, $escape, $link) {
-		$value = $escape ? $this->escape($value, $link) : $value;
+		$value = $escape & Db::NO_ESCAPE_VALUE == 0 ? $this->escape($value, $link) : $value;
 		$value = ($side == 'LEFT' || $side == 'BOTH' ? '%' : '') . $value . ($side == 'RIGHT' || $side == 'BOTH' ? '%' : '');
+		if (($escape & Db::NO_QUOTE_VALUE) === 0) $value = '"' . $value . '"';
 		return $value;
 	}
 }

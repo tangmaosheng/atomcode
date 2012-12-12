@@ -238,15 +238,31 @@ abstract class Model {
 		$this->dbData->limit = array('limit' => $limit, 'offset' => $offset);
 	}
 
-	public function select($columns, $escape = TRUE) {
+	public function select($columns, $escape = 0) {
+		if ($escape === TRUE) {
+			$escape = 0;
+		} elseif ($escape === FALSE) {
+			$escape = DB::NO_QUOTE_KEY;
+		}
 		$this->dbData->selects[] = array('col' => $columns, 'escape' => $escape);
 	}
 
-	public function join($table, $conditions, $join_type = 'inner', $escape = TRUE, $index_hint = NULL) {
+	public function join($table, $conditions, $join_type = 'inner', $escape = 0, $index_hint = NULL) {
+		if ($escape === TRUE) {
+			$escape = 0;
+		} elseif ($escape === FALSE) {
+			$escape = DB::NO_ESCAPE_VALUE | DB::NO_QUOTE_VALUE;
+		}
 		$this->dbData->joins[] = array('table' => $table, 'cond' => $conditions, 'type' => $join_type, 'escape' => $escape, 'index_hint' => $index_hint);
 	}
 
-	public function where($key, $value = NULL, $escape = TRUE, $logic = 'and') {
+	public function where($key, $value = NULL, $escape = 0, $logic = 'and') {
+		if ($escape === TRUE) {
+			$escape = 0;
+		} elseif ($escape === FALSE) {
+			$escape = DB::NO_ESCAPE_VALUE | DB::NO_QUOTE_VALUE;
+		}
+		
 		if (is_string($key)) {
 			$this->dbData->wheres[strtoupper($logic)][] = array('key' => $key, 'value' => $value, 'escape' => $escape);
 		} else {
@@ -271,7 +287,13 @@ abstract class Model {
 		$this->dbData->wheres["AND"] = $this->dbData->wheres["AND"] ? array_merge($this->dbData->wheres["AND"], func_get_args()) : func_get_args();
 	}
 
-	public function newWhere($key, $value = NULL, $escape = TRUE) {
+	public function newWhere($key, $value = NULL, $escape = 0) {
+		if ($escape === TRUE) {
+			$escape = 0;
+		} elseif ($escape === FALSE) {
+			$escape = DB::NO_ESCAPE_VALUE | DB::NO_QUOTE_VALUE;
+		}
+		
 		return array('key' => $key, 'value' => $value, 'escape' => $escape);
 	}
 
@@ -303,7 +325,13 @@ abstract class Model {
 		$this->dbData->orderBys[] = array('col' => $columns, 'direction' => $direction);
 	}
 
-	public function having($key, $value = NULL, $escape = TRUE, $logic = 'and') {
+	public function having($key, $value = NULL, $escape = 0, $logic = 'and') {
+		if ($escape === TRUE) {
+			$escape = 0;
+		} elseif ($escape === FALSE) {
+			$escape = DB::NO_ESCAPE_VALUE | DB::NO_QUOTE_VALUE;
+		}
+		
 		if (is_string($key)) {
 			$this->dbData->havings[strtoupper($logic)][] = array('key' => $key, 'value' => $value, 'escape' => $escape);
 		} else {
@@ -326,7 +354,12 @@ abstract class Model {
 		$this->dbData->havings["AND"] = $this->dbData->havings["AND"] ? array_merge($this->dbData->havings["AND"], func_get_args()) : func_get_args();
 	}
 
-	public function newHaving($key, $value = NULL, $escape = TRUE) {
+	public function newHaving($key, $value = NULL, $escape = 0) {
+		if ($escape === TRUE) {
+			$escape = 0;
+		} elseif ($escape === FALSE) {
+			$escape = DB::NO_ESCAPE_VALUE | DB::NO_QUOTE_VALUE;
+		}
 		return array('key' => $key, 'value' => $value, 'escape' => $escape);
 	}
 
@@ -334,20 +367,20 @@ abstract class Model {
 		$this->dbData->havings[] = array('sql' => $where_sql, 'params' => array_slice(func_get_args(), 1));
 	}
 
-	public function leftJoin($table, $conditions, $escape = TRUE, $index_hint = NULL) {
+	public function leftJoin($table, $conditions, $escape = 0, $index_hint = NULL) {
 		return $this->join($table, $conditions, 'LEFT', $escape, $index_hint);
 	}
 
-	public function rightJoin($table, $conditions, $escape = TRUE, $index_hint = NULL) {
+	public function rightJoin($table, $conditions, $escape = 0, $index_hint = NULL) {
 		return $this->join($table, $conditions, 'RIGHT', $escape, $index_hint);
 	}
 
-	public function straightJoin($table, $conditions, $escape = TRUE, $index_hint = NULL) {
+	public function straightJoin($table, $conditions, $escape = 0, $index_hint = NULL) {
 		return $this->join($table, $conditions, 'STRAIGHT_JOIN', $escape, $index_hint);
 	}
 
 	public function natureJoin($table, $direction = '', $index_hint = NULL) {
-		return $this->join($table, NULL, 'NATURAL' . ($direction ? ' ' . $direction : ''), NULL, $index_hint);
+		return $this->join($table, NULL, 'NATURAL' . ($direction ? ' ' . $direction : ''), 0, $index_hint);
 	}
 
 	public function reset() {
@@ -365,16 +398,16 @@ abstract class Model {
 		$this->dbData->froms[] = array('sql' => $sql, 'alias' => $alias, 'index_hint' => $index_hint);
 	}
 
-	public function subWhere($key, $sql) {
-		$this->dbData->wheres['AND'][] = array('key' => $key, 'sql' => $sql, 'escape' => FALSE);
+	public function subWhere($key, $sql, $escape = 0) {
+		$this->dbData->wheres['AND'][] = array('key' => $key, 'sql' => $sql, 'escape' => $escape);
 	}
 
-	public function subOrWhere($key, $sql) {
-		$this->dbData->wheres['OR'][] = array('key' => $key, 'sql' => $sql, 'escape' => FALSE);
+	public function subOrWhere($key, $sql, $escape = 0) {
+		$this->dbData->wheres['OR'][] = array('key' => $key, 'sql' => $sql, 'escape' => $escape);
 	}
 
-	public function newSubWhere($key, $sql = NULL) {
-		return array('key' => $key, 'sql' => $sql, 'escape' => FALSE);
+	public function newSubWhere($key, $sql, $escape = 0) {
+		return array('key' => $key, 'sql' => $sql, 'escape' => $escape);
 	}
 
 	/**
@@ -385,14 +418,20 @@ abstract class Model {
 	 * @param mixed $value 如果key是一个字符串，则此处表示对应的值；如果key是一个数组，此处表示不会转义的字段列表
 	 * @param boolean $escape
 	 */
-	public function set($key, $value = NULL, $escape = TRUE) {
+	public function set($key, $value = NULL, $escape = 0) {
+		if ($escape === TRUE) {
+			$escape = 0;
+		} elseif ($escape === FALSE) {
+			$escape = DB::NO_ESCAPE_VALUE | DB::NO_QUOTE_VALUE;
+		}
+		
 		if (is_array($key)) {
 			if (is_array(reset($key))) {
 				$this->dbData->msets['values'] = $key;
 				$this->dbData->msets['reserve_keys'] = is_array($value) ? $value : array();
 			} else {
 				foreach ($key as $k => $v) {
-					$this->set($k, $v, is_array($value) ? !in_array($k, $value) : TRUE);
+					$this->set($k, $v, is_array($value) && in_array($k, $value) ? $value[$k] : 0);
 				}
 			}
 		
@@ -408,10 +447,16 @@ abstract class Model {
 	 * @param mixed $value 如果key是一个字符串，则此处表示对应的值；如果key是一个数组，此处表示不会转义的字段列表
 	 * @param boolean $escape
 	 */
-	public function set2($key, $value = NULL, $escape = TRUE) {
+	public function set2($key, $value = NULL, $escape = 0) {
+		if ($escape === TRUE) {
+			$escape = 0;
+		} elseif ($escape === FALSE) {
+			$escape = DB::NO_ESCAPE_VALUE | DB::NO_QUOTE_VALUE;
+		}
+		
 		if (is_array($key)) {
 			foreach ($key as $k => $v) {
-				$this->set2($k, $v, is_array($value) ? !in_array($k, $value) : TRUE);
+				$this->set2($k, $v, is_array($value) && in_array($k, $value) ? $value[$k] : 0);
 			}
 		} else {
 			$this->dbData->sets2[] = array('key' => $key, 'value' => $value, 'escape' => $escape);
@@ -498,7 +543,7 @@ abstract class Model {
 		$select = $this->dbData->selects;
 		$query_type = $this->dbData->queryType;
 		unset($this->dbData->limit, $this->dbData->selects);
-		$this->select('count(1) num');
+		$this->select('count(1) num', DB::NO_QUOTE_KEY);
 		$this->dbData->queryType = 'select';
 		$result = $this->__getResult();
 		$this->dbData->limit = $limit;
@@ -635,12 +680,55 @@ abstract class Model {
 	 * @param STRING $key
 	 * @param STRING $value
 	 * @param STRING $side BOTH | LEFT | RIGHT
+	 * @param int $escape
+	 * @param enum $logic AND | OR
+	 */
+	public function like($key, $value, $side = 'BOTH', $escape = 0, $logic = 'AND') {
+		if ($escape === TRUE) {
+			$escape = 0;
+		} elseif ($escape === FALSE) {
+			$escape = DB::NO_ESCAPE_VALUE | DB::NO_QUOTE_VALUE;
+		}
+		
+		$side = strtoupper($side);
+		return $this->where($key . ' LIKE', $this->myDriver->getLikeValue($value, $side, $escape, $this->chooseLink('select')), DB::NO_QUOTE_VALUE | DB::NO_ESCAPE_VALUE | (DB::NO_QUOTE_KEY & $escape), $logic);
+	}
+
+	/**
+	 * 
+	 * @param STRING $key
+	 * @param STRING $value
+	 * @param STRING $side BOTH | LEFT | RIGHT
+	 * @param Bool $escape
+	 */
+	public function newLike($key, $value, $side = 'BOTH', $escape = 0) {
+		if ($escape === TRUE) {
+			$escape = 0;
+		} elseif ($escape === FALSE) {
+			$escape = DB::NO_ESCAPE_VALUE | DB::NO_QUOTE_VALUE;
+		}
+		
+		$side = strtoupper($side);
+		return $this->newWhere($key . ' LIKE', $this->myDriver->getLikeValue($value, $side, $escape, $this->chooseLink('select')), DB::NO_QUOTE_VALUE | DB::NO_ESCAPE_VALUE | (DB::NO_QUOTE_KEY & $escape));
+	}
+
+	/**
+	 * 
+	 * @param STRING $key
+	 * @param STRING $value
+	 * @param STRING $side BOTH | LEFT | RIGHT
 	 * @param Bool $escape
 	 * @param enum $logic AND | OR
 	 */
-	public function like($key, $value, $side = 'BOTH', $escape = TRUE, $logic = 'AND') {
+	public function notLike($key, $value, $side = 'BOTH', $escape = 0, $logic = 'AND') {
+		if ($escape === TRUE) {
+			$escape = 0;
+		} elseif ($escape === FALSE) {
+			$escape = DB::NO_ESCAPE_VALUE | DB::NO_QUOTE_VALUE;
+		}
+		
 		$side = strtoupper($side);
-		return $this->where($key . ' LIKE', $this->myDriver->getLikeValue($value, $side, $escape, $this->chooseLink('select')), FALSE, $logic);
+		return $this->where($key . ' NOT LIKE', $this->myDriver->getLikeValue($value, $side, $escape, $this->chooseLink('select')), DB::NO_QUOTE_VALUE | DB::NO_ESCAPE_VALUE | (DB::NO_QUOTE_KEY & $escape), $logic);
 	}
 
 	/**
@@ -650,35 +738,17 @@ abstract class Model {
 	 * @param STRING $side BOTH | LEFT | RIGHT
 	 * @param Bool $escape
 	 */
-	public function newLike($key, $value, $side = 'BOTH', $escape = TRUE) {
-		return $this->newWhere($key . ' LIKE', $this->myDriver->getLikeValue($value, $side, $escape, $this->chooseLink('select')), FALSE);
+	public function newNotLike($key, $value, $side = 'BOTH', $escape = 0) {
+		if ($escape === TRUE) {
+			$escape = 0;
+		} elseif ($escape === FALSE) {
+			$escape = DB::NO_ESCAPE_VALUE | DB::NO_QUOTE_VALUE;
+		}
+		
+		return $this->newWhere($key . ' NOT LIKE', $this->myDriver->getLikeValue($value, $side, $escape, $this->chooseLink('select')), DB::NO_QUOTE_VALUE | DB::NO_ESCAPE_VALUE | (DB::NO_QUOTE_KEY & $escape));
 	}
 
-	/**
-	 * 
-	 * @param STRING $key
-	 * @param STRING $value
-	 * @param STRING $side BOTH | LEFT | RIGHT
-	 * @param Bool $escape
-	 * @param enum $logic AND | OR
-	 */
-	public function notLike($key, $value, $side = 'BOTH', $escape = TRUE, $logic = 'AND') {
-		$side = strtoupper($side);
-		return $this->where($key . ' NOT LIKE', $this->myDriver->getLikeValue($value, $side, $escape, $this->chooseLink('select')), FALSE, $logic);
-	}
-
-	/**
-	 * 
-	 * @param STRING $key
-	 * @param STRING $value
-	 * @param STRING $side BOTH | LEFT | RIGHT
-	 * @param Bool $escape
-	 */
-	public function newNotLike($key, $value, $side = 'BOTH', $escape = TRUE) {
-		return $this->newWhere($key . ' NOT LIKE', $this->myDriver->getLikeValue($value, $side, $escape, $this->chooseLink('select')), FALSE);
-	}
-
-	public function whereIn($key, $value, $escape = TRUE, $logic = 'AND') {
+	public function whereIn($key, $value, $escape = 0, $logic = 'AND') {
 		if (is_string($value)) {
 			$value = explode(",", $value);
 		}
@@ -686,7 +756,7 @@ abstract class Model {
 		return $this->where($key . ' IN', $value, $escape, $logic);
 	}
 
-	public function newWhereIn($key, $value, $escape = TRUE) {
+	public function newWhereIn($key, $value, $escape = 0) {
 		if (is_string($value)) {
 			$value = explode(",", $value);
 		}
@@ -694,7 +764,7 @@ abstract class Model {
 		return $this->newWhere($key . ' IN', $value, $escape);
 	}
 
-	public function whereNotIn($key, $value, $escape = TRUE, $logic = 'AND') {
+	public function whereNotIn($key, $value, $escape = 0, $logic = 'AND') {
 		if (is_string($value)) {
 			$value = explode(",", $value);
 		}
@@ -702,7 +772,7 @@ abstract class Model {
 		return $this->where($key . ' NOT IN', $value, $escape, $logic);
 	}
 
-	public function newWhereNotIn($key, $value, $escape = TRUE) {
+	public function newWhereNotIn($key, $value, $escape = 0) {
 		if (is_string($value)) {
 			$value = explode(",", $value);
 		}
