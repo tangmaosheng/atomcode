@@ -270,10 +270,22 @@ abstract class Model {
 			if (is_numeric($k)) {
 				$this->dbData->wheres[strtoupper($logic)] = $this->dbData->wheres[strtoupper($logic)] ? array_merge($this->dbData->wheres[strtoupper($logic)], $key) : $key;
 			} else {
+				if (count($key) === 1) {
+					$k1 = strtoupper(key($key));
+					$is_logic = ($k1 === 'AND' || $k1 === 'OR');
+				} 
+				$logic = strtoupper($logic);
+				
 				foreach ($key as $k => $v) {
-					$k = strtoupper($k);
-					if ($k == 'AND' || $k == 'OR')
+					if ($is_logic) {
 						$this->dbData->wheres[$k] = $this->dbData->wheres[$k] ? array_merge($this->dbData->wheres[$k], $v) : $v;
+					} else {
+						if (is_numeric($k)) {
+							$this->dbData->wheres[$logic][] = $v;
+						} elseif (!$value || is_array($value) && in_array($k, $value)) {
+							$this->dbData->wheres[$logic][] = array('key' => $k, 'value' => $v, 'escape' => $escape);
+						}
+					}
 				}
 			}
 		}

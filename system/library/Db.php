@@ -239,7 +239,6 @@ abstract class DbDriver {
 	 * @param mixed $where
 	 */
 	public function parseWhere($where, $org_logic = '', $link) {
-		static $i = 1;
 		if (!$where) return '';
 		
 		if (is_string($where)) {
@@ -270,7 +269,6 @@ abstract class DbDriver {
 					return $this->protectKey(trim(substr($where['key'], 0, -strlen($oper))), $where['escape']) . $oper . $this->protectValue($where['value'], $where['escape'], $link);
 				}
 			} else {
-				$i++;
 				return $this->parseWhere($where['key'], $org_logic, $link);
 			}
 		} elseif (array_key_exists('params', $where)) {
@@ -294,7 +292,6 @@ abstract class DbDriver {
 		$wheres = array();
 		if ($where['AND']) {
 			foreach ($where['AND'] as $w) {
-				$i++;
 				$wheres[] = $this->parseWhere($w, 'AND', $link);
 			}
 			
