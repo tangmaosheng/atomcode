@@ -140,6 +140,12 @@ abstract class iViewHelper {
 		return TIMESTAMP;
 	}
 
+	/**
+	 * 生成 HTML select 中的 option 列表
+	 * Enter description here ...
+	 * @param array $option
+	 * @param string|int $selected_value
+	 */
 	public static function mkoptions($option, $selected_value) {
 		$html = '';
 		if (!$option || !is_array($option))
@@ -195,6 +201,16 @@ abstract class iViewHelper {
 		return Json::encode($value);
 	}
 
+	/**
+	 * 将值转化为可阅读的格式
+	 * 
+	 * var: 将使用 var_export 进行输出数据
+	 * json: 将值转化为  json　格式字符串输出
+	 * html: 将值先使用 var_export 输出，再高亮代码
+	 * 
+	 * @param mixed $value
+	 * @param enum $type var, json, html
+	 */
 	public static function readable($value, $type = 'var') {
 		if ($type == 'json') {
 			self::json($value);
@@ -205,38 +221,100 @@ abstract class iViewHelper {
 		}
 	
 	}
+	
+	/**
+	 * 将值乘以另一个值
+	 * @param number $a
+	 * @param number $b
+	 */
 	public static function multiple($a, $b) {
 		return $a * $b;
 	}
 	
+	/**
+	 * 将值除以另一个值
+	 * @param number $a
+	 * @param number $b
+	 */
 	public static function divide($a, $b) {
 		return $a / $b;
 	}
 	
+	/**
+	 * 将值加上另一个值
+	 * @param number $a
+	 * @param number $b
+	 */
 	public static function plus($a, $b) {
 		return $a + $b;
 	}
 	
+	/**
+	 * 将值减去另一个值
+	 * @param number $a
+	 * @param number $b
+	 */
 	public static function minus($a, $b) {
 		return $a - $b;
 	}
 	
+	/**
+	 * 取值的相反数
+	 * @param number $a
+	 */
 	public static function negative($a) {
 		return -$a;
 	}
 	
+	/**
+	 * 取值的倒数
+	 * @param number $a
+	 */
 	public static function inserse($a) {
 		return 1/$a;
 	}
 	
+	/**
+	 * 取值的绝对值
+	 * @param number $a
+	 * @param number $b
+	 */
 	public static function abs($a) {
 		return abs($a);
 	}
 	
+	public static function mod($a, $b) {
+		return fmod($a, $b);
+	}
+	
+	public static function ceil($a) {
+		return ceil($a);
+	}
+	
+	public static function floor($a) {
+		return floor($a);
+	}
+	
+	public static function round($a) {
+		return round($a);
+	}
+	
+	/**
+	 * 将值转换为两位小数的值，或转换为指定格式
+	 * 
+	 * @param unknown_type $a
+	 * @param unknown_type $format
+	 */
 	public static function money($a, $format = '%.2f') {
 		return sprintf($format, $a);
 	}
 	
+	/**
+	 * 将值使用  number_format 进行转换
+	 * 
+	 * @param number $a
+	 * @param int $decimals
+	 */
 	public static function number($a, $decimals = 0) {
 		if (!is_numeric($a)) {
 			return '';
@@ -245,17 +323,44 @@ abstract class iViewHelper {
 		return number_format($a, $decimals);
 	}
 	
+	
+	/**
+	 * 将值赋给另一个变量
+	 * @param mixed $a
+	 * @param mixed $b
+	 */
 	public static function reassign($a, &$b) {
 		$b = $a;
 		
 		return '';
 	}
 	
+	/**
+	 * 如果是POST方法则返回给出的值
+	 * 
+	 * @param unknown_type $a
+	 * @param unknown_type $b
+	 */
 	public static function ifpost($a, $b) {
 		if (strtolower($_SERVER['REQUEST_METHOD']) == 'post') {
 			return $b;
 		} else {
 			return $a;
+		}
+	}
+	
+	/**
+	 * 由 $a 决定是使用 $b 还是 $c
+	 * 
+	 * @param unknown_type $a
+	 * @param unknown_type $b
+	 * @param unknown_type $c
+	 */
+	public static function choose($a, $b, $c) {
+		if ($a) {
+			return $b;
+		} else {
+			return $c;
 		}
 	}
 }

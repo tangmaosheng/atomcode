@@ -155,8 +155,12 @@ class Uri {
 	}
 
 	private function setUri($uri) {
-		$uri = preg_replace('/\.+/', '.', $uri);
-		$this->uri_string = $uri;
+		if (preg_match('/^[\w\-\.\/]+$/', $uri)) {
+			$uri = preg_replace('/\.+/', '.', $uri);
+			$this->uri_string = $uri;
+		} else {
+			$this->uri_string = '';
+		}
 	}
 
 	public function getUriString() {

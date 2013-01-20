@@ -257,38 +257,38 @@ abstract class Model {
 	}
 
 	public function where($key, $value = NULL, $escape = 0, $logic = 'and') {
-		if ($escape === TRUE) {
-			$escape = 0;
-		} elseif ($escape === FALSE) {
-			$escape = DB::NO_ESCAPE_VALUE | DB::NO_QUOTE_VALUE;
-		}
+		$logic = strtoupper($logic);
+		$where = $this->_repairWhere($key, $value, $escape, $logic);print_r($where);
+		$this->dbData->wheres = array_merge($this->dbData->wheres ? $this->dbData->wheres : array(), $where);
+	}
+
+	private function _repairWhere($key, $value, $escape, &$logic = 'AND') {
+		$where = array();
 		
 		if (is_string($key)) {
-			$this->dbData->wheres[strtoupper($logic)][] = array('key' => $key, 'value' => $value, 'escape' => $escape);
-		} else {
-			$k = key($key);
-			if (is_numeric($k)) {
-				$this->dbData->wheres[strtoupper($logic)] = $this->dbData->wheres[strtoupper($logic)] ? array_merge($this->dbData->wheres[strtoupper($logic)], $key) : $key;
-			} else {
-				if (count($key) === 1) {
-					$k1 = strtoupper(key($key));
-					$is_logic = ($k1 === 'AND' || $k1 === 'OR');
-				} 
-				$logic = strtoupper($logic);
-				
-				foreach ($key as $k => $v) {
-					if ($is_logic) {
-						$this->dbData->wheres[$k] = $this->dbData->wheres[$k] ? array_merge($this->dbData->wheres[$k], $v) : $v;
-					} else {
-						if (is_numeric($k)) {
-							$this->dbData->wheres[$logic][] = $v;
-						} elseif (!$value || is_array($value) && in_array($k, $value)) {
-							$this->dbData->wheres[$logic][] = array('key' => $k, 'value' => $v, 'escape' => $escape);
-						}
-					}
-				}
+			$where[strtoupper($logic)][] = array('key' => $key, 'value' => $value, 'escape' => $escape);
+			return $where;
+		}
+		
+		if (!is_array($key)) {
+			return array();
+		}
+		
+		if (array_key_exists('is_new_where', $key) && is_object($key['is_new_where']) && is_a($key['is_new_where'], '__PHP_Incomplete_Class')) {
+			return array($logic => $key);
+		}
+		
+		foreach ($key as $key_key => $value_key) {
+			if (in_array(strtoupper($key_key), array('AND', 'OR'))) {
+				$where[strtoupper($key_key)][] = $this->_repairWhere($value_key, NULL, $escape, strtoupper($key_key));
+			} elseif (is_string($key_key)) {
+				$where[$logic][] = array('key' => $key_key, 'value' => $value_key, 'escape' => $escape);//$this->_repairWhere(array($key_key => $value_key), NULL, $escape, $logic);
+			} elseif (is_numeric($key_key)) {
+				$where[$logic][] = $this->_repairWhere($value_key, NULL, $escape, $logic);
 			}
 		}
+		
+		return $where;
 	}
 
 	public function orWhere($where1, $where2) {
@@ -306,7 +306,7 @@ abstract class Model {
 			$escape = DB::NO_ESCAPE_VALUE | DB::NO_QUOTE_VALUE;
 		}
 		
-		return array('key' => $key, 'value' => $value, 'escape' => $escape);
+		return array('key' => $key, 'value' => $value, 'escape' => $escape, 'is_new_where' => new __PHP_Incomplete_Class());
 	}
 
 	public function prepareWhere($where_sql) {

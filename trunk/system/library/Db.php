@@ -295,7 +295,7 @@ abstract class DbDriver {
 				$wheres[] = $this->parseWhere($w, 'AND', $link);
 			}
 			
-			$str .= ($str == '' ? '' : ' ' . $org_logic . ' ') . '(' . implode(' AND ', $wheres) . ')';
+			$str .= ($str == '' ? '' : ' ' . $org_logic . ' ') . (count($wheres) > 1 ? '(' : '') . implode(' AND ', $wheres) . (count($wheres) > 1 ? ')' : '');
 		}
 		
 		$wheres = array();
@@ -304,7 +304,7 @@ abstract class DbDriver {
 				$wheres[] = $this->parseWhere($w, 'AND', $link);
 			}
 			
-			$str .= ($str == '' ? '' : ' ' . $org_logic . ' ') . '(' . implode(' OR ', $wheres) . ')';
+			$str .= ($str == '' ? '' : ' ' . $org_logic . ' ') . (count($wheres) > 1 ? '(' : '') . implode(' OR ', $wheres) . (count($wheres) > 1 ? ')' : '');
 		}
 		
 		return $str;
