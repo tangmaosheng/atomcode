@@ -178,12 +178,11 @@ abstract class iViewHelper {
 					$text_key = array_shift($free_key);
 				if (!$value_key || !$text_key)
 					return '';
-				
-				foreach ($option as $item) {
-					$html .= '<option value="' . $item[$value_key] . '"' . ($item[$value_key] == $selected_value ? ' selected="selected"' : '') . '>' . $item[$text_key] . '</option>';
-				}
 			}
-		
+			
+			foreach ($option as $item) {
+				$html .= '<option value="' . $item[$value_key] . '"' . ($item[$value_key] == $selected_value ? ' selected="selected"' : '') . '>' . $item[$text_key] . '</option>';
+			}
 		} else {
 			foreach ($option as $value => $text) {
 				$html .= '<option value="' . $value . '"' . ($value == $selected_value ? ' selected="selected"' : '') . '>' . $text . '</option>';
@@ -221,7 +220,7 @@ abstract class iViewHelper {
 		}
 	
 	}
-	
+
 	/**
 	 * 将值乘以另一个值
 	 * @param number $a
@@ -230,7 +229,7 @@ abstract class iViewHelper {
 	public static function multiple($a, $b) {
 		return $a * $b;
 	}
-	
+
 	/**
 	 * 将值除以另一个值
 	 * @param number $a
@@ -239,7 +238,7 @@ abstract class iViewHelper {
 	public static function divide($a, $b) {
 		return $a / $b;
 	}
-	
+
 	/**
 	 * 将值加上另一个值
 	 * @param number $a
@@ -248,7 +247,7 @@ abstract class iViewHelper {
 	public static function plus($a, $b) {
 		return $a + $b;
 	}
-	
+
 	/**
 	 * 将值减去另一个值
 	 * @param number $a
@@ -257,7 +256,7 @@ abstract class iViewHelper {
 	public static function minus($a, $b) {
 		return $a - $b;
 	}
-	
+
 	/**
 	 * 取值的相反数
 	 * @param number $a
@@ -265,15 +264,15 @@ abstract class iViewHelper {
 	public static function negative($a) {
 		return -$a;
 	}
-	
+
 	/**
 	 * 取值的倒数
 	 * @param number $a
 	 */
 	public static function inserse($a) {
-		return 1/$a;
+		return 1 / $a;
 	}
-	
+
 	/**
 	 * 取值的绝对值
 	 * @param number $a
@@ -282,23 +281,23 @@ abstract class iViewHelper {
 	public static function abs($a) {
 		return abs($a);
 	}
-	
+
 	public static function mod($a, $b) {
 		return fmod($a, $b);
 	}
-	
+
 	public static function ceil($a) {
 		return ceil($a);
 	}
-	
+
 	public static function floor($a) {
 		return floor($a);
 	}
-	
+
 	public static function round($a) {
 		return round($a);
 	}
-	
+
 	/**
 	 * 将值转换为两位小数的值，或转换为指定格式
 	 * 
@@ -308,7 +307,7 @@ abstract class iViewHelper {
 	public static function money($a, $format = '%.2f') {
 		return sprintf($format, $a);
 	}
-	
+
 	/**
 	 * 将值使用  number_format 进行转换
 	 * 
@@ -322,8 +321,7 @@ abstract class iViewHelper {
 		
 		return number_format($a, $decimals);
 	}
-	
-	
+
 	/**
 	 * 将值赋给另一个变量
 	 * @param mixed $a
@@ -334,7 +332,7 @@ abstract class iViewHelper {
 		
 		return '';
 	}
-	
+
 	/**
 	 * 如果是POST方法则返回给出的值
 	 * 
@@ -348,7 +346,7 @@ abstract class iViewHelper {
 			return $a;
 		}
 	}
-	
+
 	/**
 	 * 由 $a 决定是使用 $b 还是 $c
 	 * 
