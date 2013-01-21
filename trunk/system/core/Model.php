@@ -258,8 +258,12 @@ abstract class Model {
 
 	public function where($key, $value = NULL, $escape = 0, $logic = 'and') {
 		$logic = strtoupper($logic);
-		$where = $this->_repairWhere($key, $value, $escape, $logic);print_r($where);
-		$this->dbData->wheres = array_merge($this->dbData->wheres ? $this->dbData->wheres : array(), $where);
+		$where = $this->_repairWhere($key, $value, $escape, $logic);
+		if ($this->dbData->wheres) {
+			$this->dbData->wheres[$logic] = array_merge($this->dbData->wheres[$logic], $where[$logic]);
+		} else {
+			$this->dbData->wheres = $where;
+		}
 	}
 
 	private function _repairWhere($key, $value, $escape, &$logic = 'AND') {
@@ -280,6 +284,7 @@ abstract class Model {
 		
 		foreach ($key as $key_key => $value_key) {
 			if (in_array(strtoupper($key_key), array('AND', 'OR'))) {
+				$logic = strtoupper($key_key);
 				$where[strtoupper($key_key)][] = $this->_repairWhere($value_key, NULL, $escape, strtoupper($key_key));
 			} elseif (is_string($key_key)) {
 				$where[$logic][] = array('key' => $key_key, 'value' => $value_key, 'escape' => $escape);//$this->_repairWhere(array($key_key => $value_key), NULL, $escape, $logic);
